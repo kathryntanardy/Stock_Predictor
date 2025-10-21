@@ -21,7 +21,7 @@ This repository contains a comprehensive stock data collection system that gathe
 ### 1. Clone the Repository
 ```bash
 git clone <your-repo-url>
-cd Data_Collection
+cd Stock-Predictor
 ```
 
 ### 2. Install Dependencies
