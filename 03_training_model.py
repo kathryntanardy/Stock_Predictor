@@ -88,4 +88,4 @@ if __name__ == "__main__":
     all_prices, all_news = loading_and_preparingData()
     all_prices = creating_target_variables(all_prices)
     merged = preparing_features(all_prices, all_news)
-    print(merged.head(30))
+    print(merged.head(20))
