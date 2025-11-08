@@ -13,6 +13,13 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 #standarize the data
 from sklearn.preprocessing import StandardScaler
 
+from sklearn.linear_model import LinearRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, ClassifierMixin
+
 import xgboost as xgb #help's with the random forest classifier
 
 
@@ -128,6 +135,23 @@ def prepare_model_data(data):
     ]
     model_data = data[features_columns + ['target', 'ticker', 'ds']].dropna()
     return model_data, features_columns
+
+class LinearRegThresh(BaseEstimator, ClassifierMixin):
+    def __init__(self, threshold=0.5):
+        self.threshold = threshold
+        self.pipe = Pipeline([
+            ('scaler', StandardScaler()),
+            ('lr', LinearRegression())
+        ])
+
+    def fit(self, X, y):
+        self.pipe.fit(X, y.astype(float))
+        return self
+
+    def predict(self, X):
+        pred_prob = self.pipe.predict(X)
+        return (pred_prob >= self.threshold).astype(int)
+
 def train_models(X_train, X_test, y_train, y_test):
     models ={}
 
@@ -142,6 +166,29 @@ def train_models(X_train, X_test, y_train, y_test):
     xgb_model = xgb.XGBClassifier(n_estimators = 100, random_state =42, max_depth= 10)
     xgb_model.fit(X_train, y_train)
     models['XGBoost'] = xgb_model
+
+    #linear reg
+    lr_clsfr = LinearRegThresh(threshold = 0.5)
+    lr_clsfr.fit(X_train, y_train)
+    models['linear regression'] = lr_clsfr
+
+    #decision tree, depth 6
+    dt = DecisionTreeClassifier(max_depth = 6, min_samples_leaf = 5, random_state = 42)
+    dt.fit(X_train, y_train)
+    models['decision tree'] = dt
+
+    #gradient boosting, rate 0.1
+    gb = GradientBoostingClassifier(n_estimators = 200, learning_rate = 0.1, max_depth = 3, random_state = 42)
+    gb.fit(X_train, y_train)
+    models['gradient boosting'] = gb
+
+    #k-nearest neighbors
+    knn = Pipeline([
+        ('scaler', StandardScaler()),
+        ('knn', KNeighborsClassifier(n_neighbors = 11, weights = 'distance', p = 2))
+    ])
+    knn.fit(X_train, y_train)
+    models['k-nearest neighbors'] = knn
 
     return models
 
@@ -188,9 +235,6 @@ def eval_models(models, X_test, y_test, feature_names):
 def per_ticker_report(model, X_test, y_test, model_data, test_mask):
     test_meta = model.data.loc[test_mask, ['ticker', 'ds', 'target']].reset_index(drop = True)
     preds = test_meta.copy()
-
-        
-        
 
 def main():
     print("classification model training")
