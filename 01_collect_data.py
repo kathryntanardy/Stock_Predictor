@@ -36,7 +36,6 @@ NEWS_DIR.mkdir(parents=True, exist_ok=True)
 # collect stock prices from yfinance
 def collect_prices():
     print("\n[INFO] Collecting stock price data...\n")
-    all_frames = []
 
     for t in TICKERS:
         df = yf.download(t, start=START, end=END, interval="1d", auto_adjust=True, progress=False)
@@ -48,13 +47,7 @@ def collect_prices():
         df["ticker"] = t
         df = df[["ds", "ticker", "open", "high", "low", "close", "volume"]]
         df.to_csv(PRICES_DIR / f"{t}.csv", index=False)
-        all_frames.append(df)
         print(f"[SUCCESS] Saved {t} ({len(df)} rows)")
-
-    if all_frames:
-        all_data = pd.concat(all_frames, ignore_index=True)
-        all_data.to_csv(PRICES_DIR / "all_prices.csv", index=False)
-        print("\n[SUCCESS] Saved combined prices -> data/prices/all_prices.csv")
 
 # collect marketaux news 
 def collect_news_marketaux(symbol, start, end):
@@ -144,7 +137,6 @@ def collect_news_marketaux(symbol, start, end):
 
 def collect_news():
     print("\n[INFO] Collecting news articles...\n")
-    all_frames = []
 
     # Basic search queries
     # queries = {
@@ -189,13 +181,7 @@ def collect_news():
             df = collect_news_marketaux(t, START, END)
 
         df.to_csv(NEWS_DIR / f"{t}_news.csv", index=False)
-        all_frames.append(df)
         print(f"[SUCCESS] Saved {t} ({len(df)} articles)")
-
-    if all_frames:
-        all_news = pd.concat(all_frames, ignore_index=True)
-        all_news.to_csv(NEWS_DIR / "all_news.csv", index=False)
-        print(f"\n[SUCCESS] Saved combined news -> data/news/all_news.csv ({len(all_news)} total articles)")
 
 
 if __name__ == "__main__":
