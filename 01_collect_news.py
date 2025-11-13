@@ -12,16 +12,16 @@ API_TOKEN = os.getenv("STOCK_NEWS_API_TOKEN")
 
 def get_stock_news(ticker):
 
-    # params = {
-    #     "tickers":{ticker},
-    #     "items": 100,
-    #     "page": 1,
-    #     "date": "01282023-10142025",  # 2023-01-28 to 2025-10-14
-    #     "token": API_TOKEN
-    # }
+    params = {
+        "tickers":{ticker},
+        "items": 100,
+        "page": 1,
+        "date": "01282023-10142025",  # 2023-01-28 to 2025-10-14 MMDDYYYY
+        "token": API_TOKEN
+    }
     
     # response = requests.get("https://stocknewsapi.com/api/v1/", params=params)
-    response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=100&page=1&token=a7guxxlrvl9rq1gokyat8gfqnq603fcoxlpp53rk")
+    response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=100&page=1&token={API_TOKEN}")
     
     response.raise_for_status()
 
@@ -41,8 +41,7 @@ def get_stock_news(ticker):
 
 def get_stock_training_news(ticker):
     
-    response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=80&page=1&token=a7guxxlrvl9rq1gokyat8gfqnq603fcoxlpp53rk")
-    
+    response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=100&page=1&token={API_TOKEN}")    
     response.raise_for_status()
 
     data =response.json().get("data", [])
@@ -57,7 +56,7 @@ def get_stock_training_news(ticker):
     df.to_csv(csv_file, index=False)
 
 
-    print(f"Saved {len(df)} news articles for {ticker} to '{csv_file}'")
+    print(f"Saved {len(df)} training news articles for {ticker} to '{csv_file}'")
 
 
 def main():
