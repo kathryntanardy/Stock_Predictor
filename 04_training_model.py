@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split,TimeSeriesSplit
+from sklearn.model_selection import TimeSeriesSplit, cross_validate
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -18,7 +18,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, clone
 
 import xgboost as xgb #help's with the random forest classifier
 
@@ -31,14 +31,9 @@ def loading_and_preparingData():
     all_prices = pd.read_csv('data/prices_with_metrics/all_prices.csv')
     all_prices['ds'] = pd.to_datetime(all_prices['ds']) #modify the existing df
 
-    #news data
-    all_news = pd.read_csv('data/news/all_news.csv')
-    all_news['published_at'] = pd.to_datetime(all_news['published_at'])
-
     print(f"Price data shape: {all_prices.shape}")
-    print(f"News data shape: {all_news.shape}")
 
-    return all_prices, all_news
+    return all_prices
 
 def creating_target_variables(all_prices):
     #binary classification target of up or down
@@ -61,42 +56,16 @@ def creating_target_variables(all_prices):
     return all_prices
 
 
-def preparing_features(all_prices, all_news):
-    #convert sentime score from news data to numeric. missing data will be 0
-    all_news['sentiment_score'] = pd.to_numeric(all_news['sentiment_score'], errors = 'coerce').fillna(0)
-
-    #creating new column on df for date but without time
-    all_news['date'] = all_news['published_at'].dt.date
-
-    #news features
-    news_feature =  all_news.groupby(['ticker', 'date']).agg({
-        'sentiment_score': ['mean', 'std', 'count'],
-        'title': 'count' #count of articles
-    }).reset_index()
-
-    news_feature.columns =(['ticker', 'date', 'sentiment_mean', 'sentiment_std', 'sentiment_count', 'article_count'])
-    news_feature['date'] = pd.to_datetime(news_feature['date'])
-
-    #missing values in news features
-    news_feature['sentiment_std'] = news_feature['sentiment_std'].fillna(0)
-
-    #merging news features and pricces
-    all_prices['date'] = all_prices['ds'].dt.date
-    all_prices['date'] = pd.to_datetime(all_prices['date'])
-
-    merged_data = all_prices.merge(news_feature, on= ['ticker', 'date'], how ='left') #left join
-
-    all_news_cols = ['sentiment_mean', "sentiment_std",'sentiment_count', 'article_count']
-    merged_data[all_news_cols] = merged_data[all_news_cols].fillna(0) #in the merge data df, news cols NA values are filled with 0
-
-    print(f"data after merging with news:{merged_data.shape}")
-    return merged_data
+def preparing_features(all_prices):
+    # Just return the prices data - no news features needed
+    print(f"Price data shape: {all_prices.shape}")
+    return all_prices
 
 def create_features(data):
     data = data.sort_values(['ticker','ds']).copy()
     #price based features
-    data['price_change'] = data['close'].pct_change() #finds the percentage change
-    data['volume_change'] = data['volume'].pct_change()
+    data['price_change']  = data.groupby('ticker')['close'].pct_change()
+    data['volume_change'] = data.groupby('ticker')['volume'].pct_change()
     data['high_low_ratio'] = data['high'] /data['low']
     data['close_open_ratio'] = data['close'] /data['open']
 
@@ -128,10 +97,7 @@ def prepare_model_data(data):
         'close_lag1', 'volume_lag1', 'RSI_lag1', 'MACD_lag1', 'price_change_lag1',
 
         #volatility
-        'volatility_5d', 'volatility_10d',
-
-        #news features
-        'sentiment_mean', 'sentiment_std', 'sentiment_count', 'article_count'
+        'volatility_5d', 'volatility_10d'
     ]
     model_data = data[features_columns + ['target', 'ticker', 'ds']].dropna()
     return model_data, features_columns
@@ -152,43 +118,33 @@ class LinearRegThresh(BaseEstimator, ClassifierMixin):
         pred_prob = self.pipe.predict(X)
         return (pred_prob >= self.threshold).astype(int)
 
-def train_models(X_train, X_test, y_train, y_test):
+def get_models():
+    #stores all the different models in the tuple to be used by the cross validation
+    #tscv and cross validation requires tuple for validating multiple models
     models ={}
 
     #random forest
-    #has 100 trees
-    rf= RandomForestClassifier(n_estimators = 100, random_state =42, max_depth= 10)
-    rf.fit(X_train, y_train)
-    models['random forest'] = rf
+    
+    models['random forest']= RandomForestClassifier(n_estimators = 100, random_state =42, max_depth= 10)
 
     #xgb boost 
     #similar to random forest decision tree but differnet
-    xgb_model = xgb.XGBClassifier(n_estimators = 100, random_state =42, max_depth= 10)
-    xgb_model.fit(X_train, y_train)
-    models['XGBoost'] = xgb_model
+    models['XGBoost']= xgb.XGBClassifier(n_estimators = 100, random_state =42, max_depth= 10)
 
     #linear reg
-    lr_clsfr = LinearRegThresh(threshold = 0.5)
-    lr_clsfr.fit(X_train, y_train)
-    models['linear regression'] = lr_clsfr
+    models['linear regression']  = LinearRegThresh(threshold = 0.5)
 
     #decision tree, depth 6
-    dt = DecisionTreeClassifier(max_depth = 6, min_samples_leaf = 5, random_state = 42)
-    dt.fit(X_train, y_train)
-    models['decision tree'] = dt
+    models['decision tree'] = DecisionTreeClassifier(max_depth = 6, min_samples_leaf = 5, random_state = 42)
 
     #gradient boosting, rate 0.1
-    gb = GradientBoostingClassifier(n_estimators = 200, learning_rate = 0.1, max_depth = 3, random_state = 42)
-    gb.fit(X_train, y_train)
-    models['gradient boosting'] = gb
+    models['gradient boosting'] = GradientBoostingClassifier(n_estimators = 200, learning_rate = 0.1, max_depth = 3, random_state = 42)
 
     #k-nearest neighbors
-    knn = Pipeline([
+    models['k-nearest neighbors'] = Pipeline([
         ('scaler', StandardScaler()),
         ('knn', KNeighborsClassifier(n_neighbors = 11, weights = 'distance', p = 2))
     ])
-    knn.fit(X_train, y_train)
-    models['k-nearest neighbors'] = knn
 
     return models
 
@@ -237,12 +193,12 @@ def per_ticker_report(model, X_test, y_test, model_data, test_mask):
     preds = test_meta.copy()
 
 def main():
-    print("classification model training")
+    print("classification model training with cross-validation")
 
     #loading data
-    all_prices, all_news = loading_and_preparingData()
+    all_prices = loading_and_preparingData()
     all_prices = creating_target_variables(all_prices)
-    data = preparing_features(all_prices, all_news)
+    data = preparing_features(all_prices)
     data = create_features(data)
     model_data, features_columns = prepare_model_data(data)
 
@@ -250,18 +206,149 @@ def main():
     X = model_data[features_columns]
     y = model_data['target']
 
-    #splitting the data for training and testing
-    split_date = model_data['ds'].quantile(0.8)
-    train_mask = model_data['ds'] < split_date
-    test_mask = model_data['ds'] >= split_date #last 20% for testing
+    #cross validation set up
+    n_splits = 10 #number of splits can be modified and changes later
+    #time series split form of cross validation using k fold
+    #= tscv time series cross validator part of the requirement of time series
+    tscv = TimeSeriesSplit(n_splits = n_splits) #takes the n_spltis from above
 
-    #creating the train and test metrics
-    X_train, X_test = X[train_mask], X[test_mask]
-    y_train, y_test = y[train_mask], y[test_mask]
+    model_data = model_data.sort_values('ds').reset_index(drop= True)
+    X = model_data[features_columns]
+    y= model_data['target'] #re-extract x and y after sorting
 
-    #output models based on training on the train and test metrics
-    models = train_models(X_train, X_test, y_train, y_test)
-    results = eval_models(models, X_test, y_test, features_columns) #report output has 2 reports since 1 is the xgb boost and the other is random forest
+    #scoring metrics
+    scoring = {
+        'accuracy': 'accuracy',
+        'precision': 'precision',
+        'recall': 'recall',
+        'f1': 'f1'
+    }
+
+    # Get untrained model instances
+    models = get_models()
+
+    print(f"\nStarting {n_splits}-fold time series cross-validation...")
+    print(f"Total samples: {len(X)}")
+    print(f"Target distribution: {y.value_counts().to_dict()}\n")
+
+    all_results = {}
+    #output is in the form
+    #1  #number of up days
+    #0  #number of down days
+
+    # Evaluate each model using cross-validation
+    #page breaking between different models
+    for name, model in models.items():
+        print("\n")
+        print(f"Evaluating {name}")
+        print("\n")
+
+        #cross validation
+        cv_results = cross_validate(
+            model, X, y,
+            cv=tscv,
+            scoring=scoring,
+            return_train_score=False,
+            n_jobs=1 #how much of the cpu is used
+            #if is -1, 100% cpu power is used
+        )
+
+        # collect predictions for confusion matrix and classification report
+        y_pred = np.full(len(y), -1, dtype=int)  # Use -1 to mark unpredicted samples
+        all_y_true = []
+        all_y_pred = []
+        
+        for train_idx, test_idx in tscv.split(X):
+            X_train_fold = X.iloc[train_idx]
+            X_test_fold = X.iloc[test_idx]
+            y_train_fold = y.iloc[train_idx]
+            y_test_fold = y.iloc[test_idx]
+            
+            # Creating a fresh model instance for this fold
+            fold_model = clone(model)
+            fold_model.fit(X_train_fold, y_train_fold)
+            fold_predictions = fold_model.predict(X_test_fold)
+            y_pred[test_idx] = fold_predictions
+            
+            # Collect for aggregated metrics
+            all_y_true.extend(y_test_fold.values)
+            all_y_pred.extend(fold_predictions)
+
+        # Calculate average metrics across folds
+        avg_accuracy = np.mean(cv_results['test_accuracy'])
+        std_accuracy = np.std(cv_results['test_accuracy'])
+        avg_precision = np.mean(cv_results['test_precision'])
+        std_precision = np.std(cv_results['test_precision'])
+        avg_recall = np.mean(cv_results['test_recall'])
+        std_recall = np.std(cv_results['test_recall'])
+        avg_f1 = np.mean(cv_results['test_f1'])
+        std_f1 = np.std(cv_results['test_f1'])
+
+        # Overall metrics from aggregated predictions (only from test folds)
+        overall_accuracy = accuracy_score(all_y_true, all_y_pred)
+        overall_precision = precision_score(all_y_true, all_y_pred, zero_division=0)
+        overall_recall = recall_score(all_y_true, all_y_pred, zero_division=0)
+        overall_f1 = f1_score(all_y_true, all_y_pred, zero_division=0)
+        overall_cm = confusion_matrix(all_y_true, all_y_pred)
+
+        # PRINTS PER FOLD RESULT FOR TESTING PURPOSES
+        print(f"\nPer-fold results:")
+        for fold_idx in range(n_splits):
+            print(f"  Fold {fold_idx+1}:")
+            print(f"    Accuracy:  {cv_results['test_accuracy'][fold_idx]:.4f}")
+            print(f"    Precision: {cv_results['test_precision'][fold_idx]:.4f}")
+            print(f"    Recall:    {cv_results['test_recall'][fold_idx]:.4f}")
+            print(f"    F1 Score:  {cv_results['test_f1'][fold_idx]:.4f}")
+
+        # Print summary
+        print(f"\nAverage across {n_splits} folds:")
+        print(f"  Accuracy:  {avg_accuracy:.4f}")
+        print(f"  Precision: {avg_precision:.4f}")
+        print(f"  Recall:    {avg_recall:.4f}")
+        print(f"  F1 Score:  {avg_f1:.4f}")
+
+        print(f"\nOverall metrics:")
+        print(f"  Accuracy:  {overall_accuracy:.4f}")
+        print(f"  Precision: {overall_precision:.4f}")
+        print(f"  Recall:    {overall_recall:.4f}")
+        print(f"  F1 Score:  {overall_f1:.4f}")
+
+        print(f"\nConfusion Matrix:")
+        print(f"  Predicted: DOWN UP")
+        print(f"  Actual DOWN: {overall_cm[0,0]} {overall_cm[0,1]}")
+        print(f"  Actual UP:   {overall_cm[1,0]} {overall_cm[1,1]}")
+
+        print(f"\nClassification Report:")
+        print(classification_report(all_y_true, all_y_pred, target_names=['DOWN', 'UP']))
+        
+        # Train final model on all data for potential future use
+        final_model = model
+        final_model.fit(X, y)
+
+        all_results[name] = {
+            'model': final_model,
+            'avg_accuracy': avg_accuracy,
+            'avg_precision': avg_precision,
+            'avg_recall': avg_recall,
+            'avg_f1_score': avg_f1,
+            'std_accuracy': std_accuracy,
+            'std_precision': std_precision,
+            'std_recall': std_recall,
+            'std_f1_score': std_f1,
+            'overall_accuracy': overall_accuracy,
+            'overall_precision': overall_precision,
+            'overall_recall': overall_recall,
+            'overall_f1_score': overall_f1,
+            'confusion_matrix': overall_cm,
+            'cv_results': cv_results
+        }
+    
+
+
+    
+    
+
+    return all_results
 
 
 if __name__ == "__main__":
