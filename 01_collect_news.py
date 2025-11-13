@@ -22,7 +22,7 @@ def get_stock_news(ticker):
     
     # response = requests.get("https://stocknewsapi.com/api/v1/", params=params)
     response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=100&page=1&token=a7guxxlrvl9rq1gokyat8gfqnq603fcoxlpp53rk")
-   
+    
     response.raise_for_status()
 
     data =response.json().get("data", [])
@@ -39,12 +39,33 @@ def get_stock_news(ticker):
 
     print(f"Saved {len(df)} news articles for {ticker} to '{csv_file}'")
 
+def get_stock_training_news(ticker):
+    
+    response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=80&page=1&token=a7guxxlrvl9rq1gokyat8gfqnq603fcoxlpp53rk")
+    
+    response.raise_for_status()
+
+    data =response.json().get("data", [])
+
+    output_directory = "data/training_news"
+    os.makedirs(output_directory, exist_ok=True)
+
+    df = pd.DataFrame(data)
+    df = df.drop(columns=["image_url", "type"], errors="ignore")
+    df["tickers"]=f"{ticker}"
+    csv_file = os.path.join(output_directory, f"{ticker}.csv")
+    df.to_csv(csv_file, index=False)
+
+
+    print(f"Saved {len(df)} news articles for {ticker} to '{csv_file}'")
+
+
 def main():
 
     for ticker in TICKERS:
         get_stock_news(ticker)
+        get_stock_training_news(ticker)
     
-       
 
 
 if __name__ == "__main__":
