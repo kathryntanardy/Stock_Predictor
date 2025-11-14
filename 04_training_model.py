@@ -28,7 +28,7 @@ import xgboost as xgb #help's with the random forest classifier
 def loading_and_preparingData():
 #loading data and coverting it to time series using date time
 #since stocks are time dependent for future targets
-    all_prices = pd.read_csv('data/prices_with_metrics/MSFT.csv')
+    all_prices = pd.read_csv('data/prices_with_metrics/NVDA.csv')
     all_prices['ds'] = pd.to_datetime(all_prices['ds']) #modify the existing df
 
     print(f"Price data shape: {all_prices.shape}")
@@ -125,11 +125,11 @@ def get_models():
 
     #random forest
     
-    models['random forest']= RandomForestClassifier(n_estimators = 150, random_state =50, max_depth= 12)
+    models['random forest']= RandomForestClassifier(n_estimators = 150, random_state =50, max_depth= 6)
 
     #xgb boost 
     #similar to random forest decision tree but differnet
-    models['XGBoost']= xgb.XGBClassifier(n_estimators = 150, random_state =50, max_depth= 12)
+    models['XGBoost']= xgb.XGBClassifier(n_estimators = 150, random_state =50, max_depth= 6)
 
     #linear reg
     models['linear regression']  = LinearRegThresh(threshold = 0.5)
@@ -143,7 +143,7 @@ def get_models():
     #k-nearest neighbors
     models['k-nearest neighbors'] = Pipeline([
         ('scaler', StandardScaler()),
-        ('knn', KNeighborsClassifier(n_neighbors = 15, weights = 'distance', p = 5))
+        ('knn', KNeighborsClassifier(n_neighbors = 15, weights = 'distance', p = 2))
     ])
 
     return models
