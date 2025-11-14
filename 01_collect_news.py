@@ -11,59 +11,58 @@ API_TOKEN = os.getenv("STOCK_NEWS_API_TOKEN")
 
 
 def get_stock_news(ticker):
+    for i in range (1, 6):
 
-    params = {
-        "tickers":{ticker},
-        "items": 100,
-        "page": 1,
-        "date": "01282023-10142025",  # 2023-01-28 to 2025-10-14 MMDDYYYY
-        "token": API_TOKEN
-    }
+        params = {
+            "tickers":{ticker},
+            "items": 100,
+            "page": 1,
+            "date": "01282023-10142025",  # 2023-01-28 to 2025-10-14 MMDDYYYY
+            "token": API_TOKEN
+        }
+        
+        # response = requests.get("https://stocknewsapi.com/api/v1/", params=params)
+        response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=100&page={i}&token={API_TOKEN}")
+        
+        response.raise_for_status()
+
+        data =response.json().get("data", [])
+
+        output_directory = "data/training_news"
+        os.makedirs(output_directory, exist_ok=True)
+
+        df = pd.DataFrame(data)
+        df = df.drop(columns=["sentiment", "image_url", "type"], errors="ignore")
+        df["tickers"]=f"{ticker}"
+        csv_file = os.path.join(output_directory, f"{ticker}.csv")
+        
+        if os.path.exists(csv_file):
+            df.to_csv(csv_file, mode="a", header=False, index=False)
+            print(f"Appended to existing {ticker}.csv")
+        else:
+            df.to_csv(csv_file, mode="w", header=True, index=False)
+            print(f"Created new {ticker}.csv file")
     
-    # response = requests.get("https://stocknewsapi.com/api/v1/", params=params)
-    response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=100&page=1&token={API_TOKEN}")
+def split_training_and_predicting(ticker):
     
-    response.raise_for_status()
+    input = f"data/training_news/{ticker}.csv"
+    df = pd.read_csv(input)
 
-    data =response.json().get("data", [])
+    first_100 = df.head(100)
+    last_400 = df.tail(400)
 
-    output_directory = "data/news"
-    os.makedirs(output_directory, exist_ok=True)
+    predicting_directory = "data/predicting_news"
+    os.makedirs(predicting_directory, exist_ok=True)
+    first_100.to_csv(f"{predicting_directory}/{ticker}.csv", index=False)
 
-    df = pd.DataFrame(data)
-    df = df.drop(columns=["sentiment", "image_url", "type"], errors="ignore")
-    df["tickers"]=f"{ticker}"
-    csv_file = os.path.join(output_directory, f"{ticker}.csv")
-    df.to_csv(csv_file, index=False)
-
-
-    print(f"Saved {len(df)} news articles for {ticker} to '{csv_file}'")
-
-def get_stock_training_news(ticker):
-    
-    response = requests.get(f"https://stocknewsapi.com/api/v1?tickers={ticker}&items=100&page=1&token={API_TOKEN}")    
-    response.raise_for_status()
-
-    data =response.json().get("data", [])
-
-    output_directory = "data/training_news"
-    os.makedirs(output_directory, exist_ok=True)
-
-    df = pd.DataFrame(data)
-    df = df.drop(columns=["image_url", "type"], errors="ignore")
-    df["tickers"]=f"{ticker}"
-    csv_file = os.path.join(output_directory, f"{ticker}.csv")
-    df.to_csv(csv_file, index=False)
-
-
-    print(f"Saved {len(df)} training news articles for {ticker} to '{csv_file}'")
-
+    last_400.to_csv(input, index=False)
+    print(f"{ticker}: Separated training (400 entries) and Predicting (100 entries) data")
 
 def main():
 
     for ticker in TICKERS:
         get_stock_news(ticker)
-        get_stock_training_news(ticker)
+        split_training_and_predicting(ticker)
     
 
 
