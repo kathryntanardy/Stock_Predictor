@@ -14,35 +14,39 @@ DATE_COL = "date"
 
 def print_last_100d_summary(df, ticker_name, date_col=DATE_COL, sentiment_col="sentiment"):
     if date_col not in df.columns:
-        print(f"{ticker_name}: no '{date_col}' column found, cannot compute 100-day summary.")
+        print(f"{ticker_name}: no '{date_col}' column found.")
         return
 
     df = df.copy()
 
-    # Parse date column
-    df[date_col] = pd.to_datetime(
-        df[date_col].astype(str),
-        utc=True,
-        errors="coerce",
-    )
+    # Parse dates
+    df[date_col] = pd.to_datetime(df[date_col].astype(str), utc=True, errors="coerce")
     df = df.dropna(subset=[date_col])
 
     if df.empty:
-        print(f"{ticker_name}: no valid dates after parsing.")
+        print(f"{ticker_name}: no valid dates.")
         return
 
-    # Sort by date, compute 100-day window from the latest date
     df = df.sort_values(date_col)
-    latest_date = df[date_col].max()
-    cutoff = latest_date - timedelta(days=100)
+    latest = df[date_col].max()
+    cutoff = latest - timedelta(days=100)
 
-    df_window = df[df[date_col] >= cutoff]
+    df_100 = df[df[date_col] >= cutoff]
 
-    neg = (df_window[sentiment_col] == "Negative").sum()
-    neu = (df_window[sentiment_col] == "Neutral").sum()
-    pos = (df_window[sentiment_col] == "Positive").sum()
+    # Count sentiment labels
+    neg = (df_100[sentiment_col] == "Negative").sum()
+    neu = (df_100[sentiment_col] == "Neutral").sum()
+    pos = (df_100[sentiment_col] == "Positive").sum()
 
-    print(f"{ticker_name} – last 100 days: {neg} neg, {neu} neu, {pos} pos")
+    total = neg + neu + pos
+
+    if total > 0:
+        sentiment_score = (pos - neg) / total
+    else:
+        sentiment_score = 0
+
+    # Print result
+    print(f"{ticker_name} – last 100 days: {neg} neg, {neu} neu, {pos} pos, score = {sentiment_score:.3f}")
 
 
 def main():
