@@ -22,7 +22,9 @@ from sklearn.base import BaseEstimator, ClassifierMixin, clone
 
 import xgboost as xgb #help's with the random forest classifier
 
-
+#used later to give a final prediction output
+#either next day movement is UP or DOWN
+from pandas.tseries.offsets import BDay #considers business days only
 
 
 def loading_and_preparingData():
@@ -345,9 +347,42 @@ def main():
     
 
 
+    #from all the models: pick the best result
+    #picks the model with the best f1 score
+    best_name = max(all_results, key= lambda k: all_results[k]['avg_f1_score']) #finds best f1score
+    best_model = all_results[best_name]['model'] #finds the label of the best model
     
-    
+    #latest data
+    latest = (model_data.sort_values(['ticker','ds']).groupby('ticker', as_index = False).tail(1))
 
+    #latest prediction
+    X_latest = latest[features_columns]
+    predic = best_model.predict(X_latest)
+
+    #probability of it being up
+
+    #signals table - used to format output
+    #just using the previous variables but putting it in a new table
+    signals = latest[['ticker','ds']].rename(columns = {'ds': 'as_of_date'}).copy()
+    signals['model'] = best_name
+    signals['pred'] = predic
+
+    #signal actions
+    signals['label'] = signals['pred'].map({1: 'UP', 0:'DOWN'})
+    signals['action'] = signals['pred'].map({1: 'SELL', 0:'BUY/HOLD'}) #if its down, then buy or hold
+                                                                        #if its up then signal to sell the stock
+                                                                        #signals sell regardless of profit margin
+
+    signals['predicted_for'] = signals['as_of_date'] + BDay(1) #signals the price for the next day. but only considers business day
+
+
+    #PRINTING FINAL PREDICTION OUTPUT
+    print("\nBest model by CV and overall F1:", best_name)
+    print("\n Nextday perticker signals")
+    cols_to_show = ['ticker', 'as_of_date', 'predicted_for', 'pred', 'label', 'action']
+    print(signals[cols_to_show].to_string(index=False))
+
+    
     return all_results
 
 
