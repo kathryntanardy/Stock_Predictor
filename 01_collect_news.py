@@ -32,7 +32,7 @@ def get_stock_news(ticker):
         os.makedirs(output_directory, exist_ok=True)
 
         df = pd.DataFrame(data)
-        df = df.drop(columns=["sentiment", "image_url", "type"], errors="ignore")
+        df = df.drop(columns=["image_url", "type"], errors="ignore")
         df["tickers"]=f"{ticker}"
         csv_file = os.path.join(output_directory, f"{ticker}.csv")
         
@@ -49,6 +49,7 @@ def split_training_and_predicting(ticker):
     df = pd.read_csv(input)
 
     first_100 = df.head(100)
+    first_100 = df.drop(columns=["sentiment"], errors="ignore")
     last_400 = df.tail(400)
 
     predicting_directory = "data/predicting_news"
