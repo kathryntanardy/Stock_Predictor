@@ -106,6 +106,20 @@ def create_features(data):
     data['volatility_10d'] = data.groupby('ticker')['price_change'].rolling(10).std().reset_index(0, drop= True)
 
     return data
+
+#------------------------------------------------------------------------------------------------------------------------------------------
+#create multiple targets for more than 1 day prediction
+def add_multi_targets(data, max_targets = 7):
+    data = data.sort_values(['ticker', 'ds']).copy()
+    #loop over the 7 days
+    for j in range (1, max_targets +1):
+        #group by for each day
+        data[f'future_close_{j}'] = data.groupby('ticker')['close'].shift(-j) #for each ticker separely look at j days ahead. negative = future  value. so output will be future_close1 and group by ticker and close
+    return data
+
+
+#------------------------------------------------------------------------------------------------------------------------------------------
+
 def prepare_model_data(data):
     features_columns = [
         #price features
@@ -260,6 +274,62 @@ def get_regression_models():
     ])
 
     return models
+#------------------------------------------------------------------------------------------------------------------------------------------
+#helper for the 7 day prediction
+def train_multi_target_regressors(base_model, data, features_columns, tscv, n_splits =10, max_targets = 7):
+    results = {}
+    #for each day, train 1 regression model
+    for j in range(1, max_targets +1):
+        target_col = f'future_close_{j}'
+        #has to modify compared to single day. this is because 7 day has more NaN values in the dataset
+        valid = data.dropna(subset= features_columns + [target_col]).reset_index(drop = True)
+
+        #training like the others
+        X = valid[features_columns]
+        y_h = valid[target_col]
+
+        #folds for regression like the previous
+        fold_mae, fold_rmse, fold_r2 = [], [], []
+
+        
+        for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(X)):
+            X_train_fold = X.iloc[train_idx]
+            X_test_fold = X.iloc[test_idx]
+            y_train_fold = y_h.iloc[train_idx]
+            y_test_fold = y_h.iloc[test_idx]
+
+            fold_model = clone(base_model)
+            fold_model.fit(X_train_fold, y_train_fold)
+            y_pred = fold_model.predict(X_test_fold)
+
+            mae = mean_absolute_error(y_test_fold, y_pred)
+            mse = mean_squared_error(y_test_fold, y_pred)
+            rmse = np.sqrt(mse)
+            r2 = r2_score(y_test_fold, y_pred)
+
+            fold_mae.append(mae)
+            fold_rmse.append(rmse)
+            fold_r2.append(r2)
+
+
+        avg_mae = np.mean(fold_mae)
+        avg_rmse = np.mean(fold_rmse)
+        avg_r2 = np.mean(fold_r2)
+
+        # train final model for this day
+        final_model = clone(base_model)
+        final_model.fit(X, y_h)
+
+        results[j] = {
+            'model': final_model,
+            'avg_mae': avg_mae,
+            'avg_rmse': avg_rmse,
+            'avg_r2': avg_r2
+        }
+
+    return results
+
+#------------------------------------------------------------------------------------------------------------------------------------------
 
 #same process as classification model eval, but use mse and other regression factors
 def eval_regression_models(models, X, y_price, tscv, n_splits):
@@ -335,6 +405,11 @@ def main():
     all_prices = creating_target_variables(all_prices)
     data = preparing_features(all_prices)
     data = create_features(data)
+
+    #for the 7 day
+    data = add_multi_targets(data, max_targets =7)
+    
+
     model_data, features_columns = prepare_model_data(data)
 
     #split features /labels
@@ -550,14 +625,54 @@ def main():
     print(reg_signals[cols_to_show_reg].to_string(index=False))
 
     
+#------------------------------------------------------------------------------------------------------------------
+#7 day output training
+    #from the 1 day regression prediction above, it already picks the best model for it
+    #using that model, the prediction of 7 from it will be based on that
+    #but 7 day prediction is not predicting based on the previous day that was also a prediction
+    base_reg_model = best_reg_model #takes best reg model from earlier
+    multi_reg_results = train_multi_target_regressors(base_model = base_reg_model, data= data, features_columns = features_columns, tscv= tscv, n_splits = n_splits, max_targets =7 )
+
+    #outputting prediction of the 7 days
+    X_latest_multi = latest[features_columns]
+
+    multi_signals = []
+    latest_dates = latest['ds'].values
+    latest_tickers = latest['ticker'].values
+    latest_close = latest['close'].values
+
+    for j in range(1, 8):  #in range of 1-7 but its 8 cuz of the indices 
+        if j not in multi_reg_results:
+            continue
+
+        model_j = multi_reg_results[j]['model']
+        price_pred_j = model_j.predict(X_latest_multi)
+
+        for i in range(len(latest)):
+            multi_signals.append({
+                'ticker': latest_tickers[i],
+                'as_of_date': latest_dates[i],
+                '+target_days': j,
+                'predicted_for': latest_dates[i] + BDay(j),
+                'latest_close': latest_close[i],
+                'predicted_price': price_pred_j[i],
+                'direction': 'UP' if price_pred_j[i] > latest_close[i] else 'DOWN',
+                'action': 'SELL' if price_pred_j[i] > latest_close[i] else 'BUY/HOLD'
+            })
+
+    multi_signals_df = pd.DataFrame(multi_signals)
+
+    print("\n7-day per-ticker regression forecasts:")
+    print(multi_signals_df
+          .sort_values(['ticker', 'as_of_date', '+target_days'])
+          .to_string(index=False))
+
     #return both results
     return {
         'classification': all_results, #all_results was used from classification
-        'regression': reg_results #return regression
+        'regression': reg_results, #return regression
+        '7_day_regression': multi_reg_results # return 7 day reg
     }
-
-
-
 
 if __name__ == "__main__":
 
