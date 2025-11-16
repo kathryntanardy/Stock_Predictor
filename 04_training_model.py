@@ -27,10 +27,29 @@ import xgboost as xgb #help's with the random forest classifier
 from pandas.tseries.offsets import BDay #considers business days only
 
 
+#------------------------------------------------------------------------------------------------------------------------------------------
+#regression imports
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+#----------------------------
+#all data from csv imports
+import glob
+
 def loading_and_preparingData():
 #loading data and coverting it to time series using date time
 #since stocks are time dependent for future targets
-    all_prices = pd.read_csv('data/prices_with_metrics/NVDA.csv')
+#load all stocks
+    files = glob.glob('data/prices_with_metrics/*.csv')
+    dfs = []
+
+    for f in files:
+        df = pd.read_csv(f)
+        dfs.append(df)
+
+    all_prices = pd.concat(dfs, ignore_index = True)
     all_prices['ds'] = pd.to_datetime(all_prices['ds']) #modify the existing df
 
     print(f"Price data shape: {all_prices.shape}")
@@ -87,6 +106,20 @@ def create_features(data):
     data['volatility_10d'] = data.groupby('ticker')['price_change'].rolling(10).std().reset_index(0, drop= True)
 
     return data
+
+#------------------------------------------------------------------------------------------------------------------------------------------
+#create multiple targets for more than 1 day prediction
+def add_multi_targets(data, max_targets = 7):
+    data = data.sort_values(['ticker', 'ds']).copy()
+    #loop over the 7 days
+    for j in range (1, max_targets +1):
+        #group by for each day
+        data[f'future_close_{j}'] = data.groupby('ticker')['close'].shift(-j) #for each ticker separely look at j days ahead. negative = future  value. so output will be future_close1 and group by ticker and close
+    return data
+
+
+#------------------------------------------------------------------------------------------------------------------------------------------
+
 def prepare_model_data(data):
     features_columns = [
         #price features
@@ -101,7 +134,7 @@ def prepare_model_data(data):
         #volatility
         'volatility_5d', 'volatility_10d'
     ]
-    model_data = data[features_columns + ['target', 'ticker', 'ds']].dropna()
+    model_data = data[features_columns + ['target', 'ticker', 'ds', 'next_close']].dropna() #next_close is for regression
     return model_data, features_columns
 
 class LinearRegThresh(BaseEstimator, ClassifierMixin):
@@ -189,6 +222,176 @@ def eval_models(models, X_test, y_test, feature_names):
             'confusion_matrix': cm
         }
     return results
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#get regression models
+#same process as classification but for regression
+def get_regression_models():
+    models = {}
+
+    # random forest regressor
+    models['rf_reg'] = RandomForestRegressor(
+        n_estimators=150,
+        random_state=50,
+        max_depth=6
+    )
+
+    # xgb regressor
+    models['xgb_reg'] = xgb.XGBRegressor(
+        n_estimators=150,
+        random_state=50,
+        max_depth=6
+    )
+
+    # linear regression
+    models['lin_reg'] = Pipeline([
+        ('scaler', StandardScaler()),
+        ('lr', LinearRegression())
+    ])
+
+    # decision tree regressor
+    models['dt_reg'] = DecisionTreeRegressor(
+        max_depth=10,
+        min_samples_leaf=8,
+        random_state=50
+    )
+
+    # gradient boosting regressor
+    models['gbr_reg'] = GradientBoostingRegressor(
+        n_estimators=300,
+        learning_rate=0.1,
+        max_depth=5,
+        random_state=50
+    )
+
+    # knn regressor
+    models['knn_reg'] = Pipeline([
+        ('scaler', StandardScaler()),
+        ('knn', KNeighborsRegressor(
+            n_neighbors=15,
+            weights='distance',
+            p=2
+        ))
+    ])
+
+    return models
+#------------------------------------------------------------------------------------------------------------------------------------------
+#helper for the 7 day prediction
+def train_multi_target_regressors(base_model, data, features_columns, tscv, n_splits =10, max_targets = 7):
+    results = {}
+    #for each day, train 1 regression model
+    for j in range(1, max_targets +1):
+        target_col = f'future_close_{j}'
+        #has to modify compared to single day. this is because 7 day has more NaN values in the dataset
+        valid = data.dropna(subset= features_columns + [target_col]).reset_index(drop = True)
+
+        #training like the others
+        X = valid[features_columns]
+        y_h = valid[target_col]
+
+        #folds for regression like the previous
+        fold_mae, fold_rmse, fold_r2 = [], [], []
+
+        
+        for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(X)):
+            X_train_fold = X.iloc[train_idx]
+            X_test_fold = X.iloc[test_idx]
+            y_train_fold = y_h.iloc[train_idx]
+            y_test_fold = y_h.iloc[test_idx]
+
+            fold_model = clone(base_model)
+            fold_model.fit(X_train_fold, y_train_fold)
+            y_pred = fold_model.predict(X_test_fold)
+
+            mae = mean_absolute_error(y_test_fold, y_pred)
+            mse = mean_squared_error(y_test_fold, y_pred)
+            rmse = np.sqrt(mse)
+            r2 = r2_score(y_test_fold, y_pred)
+
+            fold_mae.append(mae)
+            fold_rmse.append(rmse)
+            fold_r2.append(r2)
+
+
+        avg_mae = np.mean(fold_mae)
+        avg_rmse = np.mean(fold_rmse)
+        avg_r2 = np.mean(fold_r2)
+
+        # train final model for this day
+        final_model = clone(base_model)
+        final_model.fit(X, y_h)
+
+        results[j] = {
+            'model': final_model,
+            'avg_mae': avg_mae,
+            'avg_rmse': avg_rmse,
+            'avg_r2': avg_r2
+        }
+
+    return results
+
+#------------------------------------------------------------------------------------------------------------------------------------------
+
+#same process as classification model eval, but use mse and other regression factors
+def eval_regression_models(models, X, y_price, tscv, n_splits):
+    all_results = {}
+
+    for name, model in models.items():
+        print("\n")
+        print(f"Evaluating regression model {name}")
+        print("\n")
+
+        fold_mae = []
+        fold_rmse = []
+        fold_r2 = []
+
+        for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(X)):
+            X_train_fold = X.iloc[train_idx]
+            X_test_fold = X.iloc[test_idx]
+
+            y_train_fold = y_price.iloc[train_idx]
+            y_test_fold = y_price.iloc[test_idx]
+
+            fold_model = clone(model)
+            fold_model.fit(X_train_fold, y_train_fold)
+
+            y_pred_price = fold_model.predict(X_test_fold)
+
+            mae = mean_absolute_error(y_test_fold, y_pred_price)
+            mse = mean_squared_error(y_test_fold, y_pred_price)
+            rmse = np.sqrt(mse)
+            r2 = r2_score(y_test_fold, y_pred_price)
+
+            fold_mae.append(mae)
+            fold_rmse.append(rmse)
+            fold_r2.append(r2)
+
+            print(f"  Fold {fold_idx+1}: MAE={mae:.4f}, RMSE={rmse:.4f}, R2={r2:.4f}")
+
+        avg_mae = np.mean(fold_mae)
+        std_mae = np.std(fold_mae)
+        avg_rmse = np.mean(fold_rmse)
+        std_rmse = np.std(fold_rmse)
+        avg_r2 = np.mean(fold_r2)
+        std_r2 = np.std(fold_r2)
+
+        print(f"\nAverage regression metrics across {n_splits} folds:")
+        print(f"  MAE:   {avg_mae:.4f}")
+        print(f"  RMSE:  {avg_rmse:.4f}")
+        print(f"  R2:    {avg_r2:.4f}")
+
+        final_model = clone(model)
+        final_model.fit(X, y_price)
+
+        all_results[name] = {
+            'model': final_model,
+            'avg_mae': avg_mae,
+            'std_mae': std_mae,
+            'avg_rmse': avg_rmse,
+            'std_rmse': std_rmse,
+            'avg_r2': avg_r2,
+            'std_r2': std_r2,
+        }
+    return all_results
 
 def per_ticker_report(model, X_test, y_test, model_data, test_mask):
     test_meta = model.data.loc[test_mask, ['ticker', 'ds', 'target']].reset_index(drop = True)
@@ -202,6 +405,11 @@ def main():
     all_prices = creating_target_variables(all_prices)
     data = preparing_features(all_prices)
     data = create_features(data)
+
+    #for the 7 day
+    data = add_multi_targets(data, max_targets =7)
+    
+
     model_data, features_columns = prepare_model_data(data)
 
     #split features /labels
@@ -216,7 +424,9 @@ def main():
 
     model_data = model_data.sort_values('ds').reset_index(drop= True)
     X = model_data[features_columns]
-    y= model_data['target'] #re-extract x and y after sorting
+    y = model_data['target'] #re-extract x and y after sorting. for classification
+    y_price = model_data['next_close'] #for regression
+    current_close= model_data['close'] #for classification coverting current price to up/down
 
     #scoring metrics
     scoring = {
@@ -226,6 +436,9 @@ def main():
         'f1': 'f1'
     }
 
+
+#------------------------------------------------------------------------------------------------------------------
+#classification models
     # Get untrained model instances
     models = get_models()
 
@@ -382,9 +595,84 @@ def main():
     cols_to_show = ['ticker', 'as_of_date', 'predicted_for', 'pred', 'label', 'action']
     print(signals[cols_to_show].to_string(index=False))
 
-    
-    return all_results
+#------------------------------------------------------------------------------------------------------------------
+#regression models
+    reg_models = get_regression_models()
+    reg_results = eval_regression_models(reg_models, X, y_price, tscv, n_splits)
 
+#pick best regression model from least MSE
+    best_reg_name = min(reg_results, key = lambda k: reg_results[k]['avg_mae'])
+    best_reg_model = reg_results[best_reg_name]['model']
+
+
+    price_pred = best_reg_model.predict(X_latest)
+    latest_close = latest['close'].values
+
+#similar to way clssification was implemented
+    reg_signals = latest[['ticker', 'ds']].rename(columns={'ds': 'as_of_date'}).copy()
+    reg_signals['model'] = best_reg_name
+    reg_signals['predicted_price'] = price_pred
+    reg_signals['direction'] = np.where(price_pred > latest_close, 'UP', 'DOWN')
+    reg_signals['action'] = np.where(price_pred > latest_close, 'SELL', 'BUY/HOLD')
+    reg_signals['predicted_for'] = reg_signals['as_of_date'] + BDay(1)
+
+    print("\nBest regression model by CV MAE:", best_reg_name)
+    print("\n Nextday per-ticker regression signals")
+    cols_to_show_reg = [
+        'ticker', 'as_of_date', 'predicted_for',
+        'predicted_price', 'direction', 'action'
+    ]
+    print(reg_signals[cols_to_show_reg].to_string(index=False))
+
+    
+#------------------------------------------------------------------------------------------------------------------
+#7 day output training
+    #from the 1 day regression prediction above, it already picks the best model for it
+    #using that model, the prediction of 7 from it will be based on that
+    #but 7 day prediction is not predicting based on the previous day that was also a prediction
+    base_reg_model = best_reg_model #takes best reg model from earlier
+    multi_reg_results = train_multi_target_regressors(base_model = base_reg_model, data= data, features_columns = features_columns, tscv= tscv, n_splits = n_splits, max_targets =7 )
+
+    #outputting prediction of the 7 days
+    X_latest_multi = latest[features_columns]
+
+    multi_signals = []
+    latest_dates = latest['ds'].values
+    latest_tickers = latest['ticker'].values
+    latest_close = latest['close'].values
+
+    for j in range(1, 8):  #in range of 1-7 but its 8 cuz of the indices 
+        if j not in multi_reg_results:
+            continue
+
+        model_j = multi_reg_results[j]['model']
+        price_pred_j = model_j.predict(X_latest_multi)
+
+        for i in range(len(latest)):
+            multi_signals.append({
+                'ticker': latest_tickers[i],
+                'as_of_date': latest_dates[i],
+                '+target_days': j,
+                'predicted_for': latest_dates[i] + BDay(j),
+                'latest_close': latest_close[i],
+                'predicted_price': price_pred_j[i],
+                'direction': 'UP' if price_pred_j[i] > latest_close[i] else 'DOWN',
+                'action': 'SELL' if price_pred_j[i] > latest_close[i] else 'BUY/HOLD'
+            })
+
+    multi_signals_df = pd.DataFrame(multi_signals)
+
+    print("\n7-day per-ticker regression forecasts:")
+    print(multi_signals_df
+          .sort_values(['ticker', 'as_of_date', '+target_days'])
+          .to_string(index=False))
+
+    #return both results
+    return {
+        'classification': all_results, #all_results was used from classification
+        'regression': reg_results, #return regression
+        '7_day_regression': multi_reg_results # return 7 day reg
+    }
 
 if __name__ == "__main__":
 
