@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 
-data_dir = "data/training_news"
+data_dir = "data/training/news"
 
 files = [
     "AAPL.csv",
@@ -20,6 +20,6 @@ combined = pd.concat(dfs, ignore_index=True)
 print("Combined shape:", combined.shape)
 print(combined.head())
 
-output_path = os.path.join(data_dir, "labeled_news_all.csv")
+output_path = os.path.join(data_dir, "labelled_news_all.csv")
 combined.to_csv(output_path, index=False)
 print(f"\nCombined news saved to: {output_path}")

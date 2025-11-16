@@ -28,7 +28,7 @@ def get_stock_news(ticker):
 
         data =response.json().get("data", [])
 
-        output_directory = "data/training_news"
+        output_directory = "data/training/news"
         os.makedirs(output_directory, exist_ok=True)
 
         df = pd.DataFrame(data)
@@ -45,14 +45,14 @@ def get_stock_news(ticker):
     
 def split_training_and_predicting(ticker):
     
-    input = f"data/training_news/{ticker}.csv"
+    input = f"data/training/news/{ticker}.csv"
     df = pd.read_csv(input)
 
     first_100 = df.head(100)
-    first_100 = df.drop(columns=["sentiment"], errors="ignore")
+    first_100 = first_100.drop(columns=["sentiment"], errors="ignore")
     last_400 = df.tail(400)
 
-    predicting_directory = "data/predicting_news"
+    predicting_directory = "data/predict/news"
     os.makedirs(predicting_directory, exist_ok=True)
     first_100.to_csv(f"{predicting_directory}/{ticker}.csv", index=False)
 

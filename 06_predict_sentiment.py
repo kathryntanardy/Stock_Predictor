@@ -6,8 +6,8 @@ import pandas as pd
 import joblib
 
 MODEL_PATH = "sentiment_model.joblib"
-INPUT_DIR = "data/predicting_news"
-OUTPUT_DIR = "data/news_with_sentiment"
+INPUT_DIR = "data/predict/news"
+OUTPUT_DIR = "data/predicted_news_with_sentiment"
 TEXT_COL = "text"
 DATE_COL = "date"
 
@@ -33,10 +33,12 @@ def print_last_100d_summary(df, ticker_name, date_col=DATE_COL, sentiment_col="s
 
     df_100 = df[df[date_col] >= cutoff]
 
+
     # Count sentiment labels
     neg = (df_100[sentiment_col] == "Negative").sum()
     neu = (df_100[sentiment_col] == "Neutral").sum()
     pos = (df_100[sentiment_col] == "Positive").sum()
+
 
     total = neg + neu + pos
 
@@ -44,6 +46,7 @@ def print_last_100d_summary(df, ticker_name, date_col=DATE_COL, sentiment_col="s
         sentiment_score = (pos - neg) / total
     else:
         sentiment_score = 0
+
 
     # Print result
     print(f"{ticker_name} – last 100 days: {neg} neg, {neu} neu, {pos} pos, score = {sentiment_score:.3f}")
@@ -79,13 +82,16 @@ def main():
         # Predict label
         preds = model.predict(texts)
         df["sentiment"] = preds
+    
 
         # Predict probabilities
         if has_proba:
             proba = model.predict_proba(texts)
-            classes = list(model.classes_)
+            classes = list(model.classes_)  
+
             for i, cls in enumerate(classes):
-                df[f"prob_{cls}"] = proba[:, i]
+                df[cls] = proba[:, i]
+
 
         # Print the simple last-100-days summary for this ticker
         print_last_100d_summary(df, ticker_name=ticker_name)
