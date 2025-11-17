@@ -37,6 +37,11 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 #----------------------------
 #all data from csv imports
 import glob
+import os
+
+#output csv for app 
+OUTPUT = "data/model_output"
+os.makedirs(OUTPUT, exist_ok=True)
 
 def loading_and_preparingData():
 #loading data and coverting it to time series using date time
@@ -595,6 +600,34 @@ def main():
     cols_to_show = ['ticker', 'as_of_date', 'predicted_for', 'pred', 'label', 'action']
     print(signals[cols_to_show].to_string(index=False))
 
+
+    #+---------------save classification metrics (output) for app---------------+
+    class_rows = []
+
+    for model_name, info in all_results.items():
+        class_rows.append({
+            'model': model_name,
+            'avg_accuracy': info['avg_accuracy'],
+            'std_accuracy': info['std_accuracy'],
+            'overall_accuracy': info['overall_accuracy'],
+            'avg_precision': info['avg_precision'],
+            'std_precision': info['std_precision'],
+            'overall_precision': info['overall_precision'],
+            'avg_recall': info['avg_recall'],
+            'std_recall': info['std_recall'],
+            'overall_recall': info['overall_recall'],
+            'avg_f1_score': info['avg_f1_score'],
+            'std_f1_score': info['std_f1_score'],
+            'overall_f1_score': info['overall_f1_score']
+        })
+
+    class_metrics_df = pd.DataFrame(class_rows)
+    class_metrics_path = os.path.join(OUTPUT, "classification_metrics.csv")
+    class_metrics_df.to_csv(class_metrics_path, index=False)
+    print(f"\nClassification metrics saved to {class_metrics_path}")
+    #+--------------------------------------------------------------------------+
+
+
 #------------------------------------------------------------------------------------------------------------------
 #regression models
     reg_models = get_regression_models()
@@ -625,6 +658,37 @@ def main():
     print(reg_signals[cols_to_show_reg].to_string(index=False))
 
     
+    #+---------------save regression metrics (output) for app---------------+
+    reg_rows = []
+
+    for model_name, info in reg_results.items():
+        reg_rows.append({
+            "model": model_name,
+            "avg_mae": info['avg_mae'],
+            "std_mae": info['std_mae'],
+            "avg_rmse": info['avg_rmse'],
+            "std_rmse": info['std_rmse'],
+            "avg_r2": info['avg_r2'],
+            "std_r2": info['std_r2']
+        })
+
+    reg_metrics_df = pd.DataFrame(reg_rows)
+    reg_metrics_path = os.path.join(OUTPUT, "regression_metrics.csv")
+    reg_metrics_df.to_csv(reg_metrics_path, index=False)
+    print(f"\nRegression metrics saved to {reg_metrics_path}")
+    #+--------------------------------------------------------------------------+
+
+    #save full-series regression predictions for all dates
+    all_price_pred = best_reg_model.predict(X)
+
+    reg_pred_df = model_data[['ticker', 'ds', 'close', 'next_close']].copy()
+    reg_pred_df['predicted_next_close'] = all_price_pred
+
+    reg_pred_path = os.path.join(OUTPUT, "regression_fs_predictions.csv")
+    reg_pred_df.to_csv(reg_pred_path, index=False)
+    print(f"\nFull-series regression predictions saved to {reg_pred_path}")
+
+
 #------------------------------------------------------------------------------------------------------------------
 #7 day output training
     #from the 1 day regression prediction above, it already picks the best model for it
