@@ -370,7 +370,7 @@ def eval_regression_models(models, X, y_price, tscv, n_splits):
             fold_rmse.append(rmse)
             fold_r2.append(r2)
 
-            print(f"  Fold {fold_idx+1}: MAE={mae:.4f}, RMSE={rmse:.4f}, R2={r2:.4f}")
+            #print(f"  Fold {fold_idx+1}: MAE={mae:.4f}, RMSE={rmse:.4f}, R2={r2:.4f}")
 
         avg_mae = np.mean(fold_mae)
         std_mae = np.std(fold_mae)
@@ -512,20 +512,20 @@ def main():
         overall_cm = confusion_matrix(all_y_true, all_y_pred)
 
         # PRINTS PER FOLD RESULT FOR TESTING PURPOSES
-        print(f"\nPer-fold results:")
-        for fold_idx in range(n_splits):
-            print(f"  Fold {fold_idx+1}:")
-            print(f"    Accuracy:  {cv_results['test_accuracy'][fold_idx]:.4f}")
-            print(f"    Precision: {cv_results['test_precision'][fold_idx]:.4f}")
-            print(f"    Recall:    {cv_results['test_recall'][fold_idx]:.4f}")
-            print(f"    F1 Score:  {cv_results['test_f1'][fold_idx]:.4f}")
+        #print(f"\nPer-fold results:")
+       #for fold_idx in range(n_splits):
+            #print(f"  Fold {fold_idx+1}:")
+            #print(f"    Accuracy:  {cv_results['test_accuracy'][fold_idx]:.4f}")
+            #print(f"    Precision: {cv_results['test_precision'][fold_idx]:.4f}")
+            #print(f"    Recall:    {cv_results['test_recall'][fold_idx]:.4f}")
+            #print(f"    F1 Score:  {cv_results['test_f1'][fold_idx]:.4f}")
 
         # Print summary
-        print(f"\nAverage across {n_splits} folds:")
-        print(f"  Accuracy:  {avg_accuracy:.4f}")
-        print(f"  Precision: {avg_precision:.4f}")
-        print(f"  Recall:    {avg_recall:.4f}")
-        print(f"  F1 Score:  {avg_f1:.4f}")
+        #print(f"\nAverage across {n_splits} folds:")
+        #print(f"  Accuracy:  {avg_accuracy:.4f}")
+        #print(f"  Precision: {avg_precision:.4f}")
+        #print(f"  Recall:    {avg_recall:.4f}")
+        #print(f"  F1 Score:  {avg_f1:.4f}")
 
         print(f"\nOverall metrics:")
         print(f"  Accuracy:  {overall_accuracy:.4f}")
