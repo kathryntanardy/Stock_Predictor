@@ -647,12 +647,12 @@ def main():
     reg_signals['predicted_for'] = reg_signals['as_of_date'] + BDay(1)
 
     print("\nBest regression model by CV MAE:", best_reg_name)
-    print("\n Nextday per-ticker regression signals")
+    #print("\n Nextday per-ticker regression signals")
     cols_to_show_reg = [
         'ticker', 'as_of_date', 'predicted_for',
         'predicted_price', 'direction', 'action'
     ]
-    print(reg_signals[cols_to_show_reg].to_string(index=False))
+    #print(reg_signals[cols_to_show_reg].to_string(index=False))
 
     
     #+---------------save regression metrics (output) for app---------------+
