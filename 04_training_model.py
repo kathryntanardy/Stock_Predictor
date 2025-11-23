@@ -57,7 +57,6 @@ def loading_and_preparingData():
     all_prices = pd.concat(dfs, ignore_index = True)
     all_prices['ds'] = pd.to_datetime(all_prices['ds']) #modify the existing df
 
-    print(f"Price data shape: {all_prices.shape}")
 
     return all_prices
 
@@ -77,14 +76,12 @@ def creating_target_variables(all_prices):
     #removing lasr row for each ticker, no next day data
     all_prices = all_prices.dropna(subset= ['next_close']).reset_index(drop= True)
 
-    print(f"target distribution: {all_prices['target'].value_counts()}")
-    print(f"target percentage: {all_prices['target'].mean()}")
     return all_prices
 
 
 def preparing_features(all_prices):
     # Just return the prices data - no news features needed
-    print(f"Price data shape: {all_prices.shape}")
+    #print(f"Price data shape: {all_prices.shape}") #just showing the dimension of the data. for testing purpose
     return all_prices
 
 def create_features(data):
@@ -207,8 +204,8 @@ def eval_models(models, X_test, y_test, feature_names):
         print(f"f1 score: {f1:}")
 
         #output classification report
-        print("\n classification report:")
-        print(classification_report(y_test, y_pred,target_names =['DOWN', 'UP']))
+        #print("\n classification report:")
+        #print(classification_report(y_test, y_pred,target_names =['DOWN', 'UP']))
 
         #creates confusion matrix
         print("\n confusion matrix:")
@@ -341,9 +338,9 @@ def eval_regression_models(models, X, y_price, tscv, n_splits):
     all_results = {}
 
     for name, model in models.items():
-        print("\n")
-        print(f"Evaluating regression model {name}")
-        print("\n")
+        #print("\n")
+        #print(f"Evaluating regression model {name}")
+        #print("\n")
 
         fold_mae = []
         fold_rmse = []
@@ -379,10 +376,10 @@ def eval_regression_models(models, X, y_price, tscv, n_splits):
         avg_r2 = np.mean(fold_r2)
         std_r2 = np.std(fold_r2)
 
-        print(f"\nAverage regression metrics across {n_splits} folds:")
-        print(f"  MAE:   {avg_mae:.4f}")
-        print(f"  RMSE:  {avg_rmse:.4f}")
-        print(f"  R2:    {avg_r2:.4f}")
+        #print(f"\nAverage regression metrics across {n_splits} folds:")
+        #print(f"  MAE:   {avg_mae:.4f}")
+        #print(f"  RMSE:  {avg_rmse:.4f}")
+        #print(f"  R2:    {avg_r2:.4f}")
 
         final_model = clone(model)
         final_model.fit(X, y_price)
@@ -459,9 +456,9 @@ def main():
     # Evaluate each model using cross-validation
     #page breaking between different models
     for name, model in models.items():
-        print("\n")
-        print(f"Evaluating {name}")
-        print("\n")
+        #print("\n")
+        #print(f"Evaluating {name}")
+        #print("\n")
 
         #cross validation
         cv_results = cross_validate(
@@ -527,19 +524,19 @@ def main():
         #print(f"  Recall:    {avg_recall:.4f}")
         #print(f"  F1 Score:  {avg_f1:.4f}")
 
-        print(f"\nOverall metrics:")
-        print(f"  Accuracy:  {overall_accuracy:.4f}")
-        print(f"  Precision: {overall_precision:.4f}")
-        print(f"  Recall:    {overall_recall:.4f}")
-        print(f"  F1 Score:  {overall_f1:.4f}")
+        #print(f"\nOverall metrics:")
+        #print(f"  Accuracy:  {overall_accuracy:.4f}")
+        #print(f"  Precision: {overall_precision:.4f}")
+        #print(f"  Recall:    {overall_recall:.4f}")
+        #print(f"  F1 Score:  {overall_f1:.4f}")
 
-        print(f"\nConfusion Matrix:")
-        print(f"  Predicted: DOWN UP")
-        print(f"  Actual DOWN: {overall_cm[0,0]} {overall_cm[0,1]}")
-        print(f"  Actual UP:   {overall_cm[1,0]} {overall_cm[1,1]}")
+        #print(f"\nConfusion Matrix:")
+        #print(f"  Predicted: DOWN UP")
+        #print(f"  Actual DOWN: {overall_cm[0,0]} {overall_cm[0,1]}")
+        #print(f"  Actual UP:   {overall_cm[1,0]} {overall_cm[1,1]}")
 
-        print(f"\nClassification Report:")
-        print(classification_report(all_y_true, all_y_pred, target_names=['DOWN', 'UP']))
+       #print(f"\nClassification Report:")
+        #print(classification_report(all_y_true, all_y_pred, target_names=['DOWN', 'UP']))
         
         # Train final model on all data for potential future use
         final_model = model
@@ -594,11 +591,11 @@ def main():
     signals['predicted_for'] = signals['as_of_date'] + BDay(1) #signals the price for the next day. but only considers business day
 
 
-    #PRINTING FINAL PREDICTION OUTPUT
+    #PRINTING FINAL PREDICTION OUTPUT FOR SINGLE DAY
     print("\nBest model by CV and overall F1:", best_name)
-    print("\n Nextday perticker signals")
+    #print("\n Nextday perticker signals")
     cols_to_show = ['ticker', 'as_of_date', 'predicted_for', 'pred', 'label', 'action']
-    print(signals[cols_to_show].to_string(index=False))
+    #print(signals[cols_to_show].to_string(index=False))
 
 
     #+---------------save classification metrics (output) for app---------------+
@@ -696,6 +693,54 @@ def main():
     #but 7 day prediction is not predicting based on the previous day that was also a prediction
     base_reg_model = best_reg_model #takes best reg model from earlier
     multi_reg_results = train_multi_target_regressors(base_model = base_reg_model, data= data, features_columns = features_columns, tscv= tscv, n_splits = n_splits, max_targets =7 )
+#------------------------------------------------------------------------------------------------------------------
+#directional accuracy for regression
+    print('regression accuracy for 7 day model')
+    #initialization of variables
+    total_mae_error = 0.0 #float
+    total_accurate = 0
+    total_count = 0
+    for j in range(1,8):
+        if j not in multi_reg_results:
+            continue
+        target_col = f'future_close_{j}'
+        #original data + future close data
+        recent_data = data.dropna(subset = features_columns + [target_col]).sort_values(['ticker', 'ds']).reset_index(drop = True)
+
+        X_h = recent_data[features_columns]
+        y_true_h = recent_data[target_col].values #price at time of future close
+        y_ref_h = recent_data['close'].values #current price at closing
+
+        model_h = multi_reg_results[j]['model']
+        y_pred_h = model_h.predict(X_h)
+
+        #directional accuracy of regression
+        #considers accuracy in predicting up or down
+        true_dir = (y_true_h > y_ref_h).astype(int)
+        pred_dir = (y_pred_h > y_ref_h).astype(int)
+        
+        #how far prediction is from the actual price
+        #using mae
+        total_mae_error +=  np.abs(y_true_h - y_pred_h).sum() #accumulate mae across 7 da7s
+
+        #sum of accuracy across 7 days for average accuracy across 7 days
+        #how accurate it is going in that direction. if its UP or DOWN
+        total_accurate += (true_dir == pred_dir).sum()
+        total_count += len(y_true_h)
+
+    overall_mae = (total_mae_error / total_count) 
+    overall_accuracy_reg = (total_accurate / total_count) * 100
+    
+
+    print("\nregression accuracy")
+    print(f"how far off from prediction(avg difference (predicted close - real close) across 7 day prediction): {overall_mae} ")
+    #accuracy across all stocks
+    print(f"directional accuracy (avg accuracy across 7 day prediction): {overall_accuracy_reg}")
+
+
+
+#------------------------------------------------------------------------------------------------------------------
+
 
     #outputting prediction of the 7 days
     X_latest_multi = latest[features_columns]
@@ -741,3 +786,6 @@ def main():
 if __name__ == "__main__":
 
     results = main()
+
+#note: rmse and r2 are not used in 7 day prediction and only for testing purposes intially (t help figure out the models)
+#also arent use in 7 day as best model is linear regression and combining with market volataility doesnt help with accuracy metric
