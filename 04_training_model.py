@@ -111,12 +111,17 @@ def create_features(data):
 
 #------------------------------------------------------------------------------------------------------------------------------------------
 #create multiple targets for more than 1 day prediction
+#for regression
 def add_multi_targets(data, max_targets = 7):
     data = data.sort_values(['ticker', 'ds']).copy()
     #loop over the 7 days
     for j in range (1, max_targets +1):
         #group by for each day
+        #for regression
         data[f'future_close_{j}'] = data.groupby('ticker')['close'].shift(-j) #for each ticker separely look at j days ahead. negative = future  value. so output will be future_close1 and group by ticker and close
+
+        #multi targets for classification
+        data[f'future_target_{j}'] = (data[f'future_close_{j}'] > data['close']).astype(float)
     return data
 
 
@@ -332,6 +337,61 @@ def train_multi_target_regressors(base_model, data, features_columns, tscv, n_sp
     return results
 
 #------------------------------------------------------------------------------------------------------------------------------------------
+#classification 7 day
+#retraining again
+def train_multi_day_classifiers(base_model,data, features_columns, tscv, max_targets = 7):
+    results = {}
+
+    for j in range(1, max_targets +1):
+
+        target_col = f'future_target_{j}'
+        recent_data = (data.dropna(subset = features_columns + [target_col]).sort_values(['ticker', 'ds']).reset_index(drop = True))
+
+        X = recent_data[features_columns]
+        y = recent_data[target_col].astype(int)
+        
+        fold_acc = [] #accuracy
+        fold_rec = [] #recall
+        fold_prec = [] #precision
+        fold_f1 = []
+
+        for train_idx, test_idx in tscv.split(X):
+            X_train_fold = X.iloc[train_idx]
+            X_test_fold = X.iloc[test_idx]
+
+            y_train_fold = y.iloc[train_idx]
+            y_test_fold = y.iloc[test_idx]
+            
+
+            #using the best model for 1 day classification for 7 day classification
+            fold_model = clone(base_model)
+            fold_model.fit(X_train_fold, y_train_fold)
+            y_pred_fold = fold_model.predict(X_test_fold)
+
+            fold_acc.append(accuracy_score(y_test_fold, y_pred_fold))
+            fold_prec.append(precision_score(y_test_fold, y_pred_fold, zero_division = 0))
+            fold_rec.append(recall_score(y_test_fold, y_pred_fold, zero_division = 0))
+            fold_f1.append(f1_score(y_test_fold, y_pred_fold, zero_division = 0))
+
+
+        final_model = clone(base_model)
+        final_model.fit(X,y)
+
+        results[j] = {
+            'model': final_model,
+            'avg_accuracy': np.mean(fold_acc),
+            'avg_precision': np.mean(fold_prec),
+            'avg_recall': np.mean(fold_rec),
+            'avg_f1_score': np.mean(fold_f1),
+
+        }
+    return results
+
+
+
+
+        
+#------------------------------------------------------------------------------------------------------------------------------------------
 
 #same process as classification model eval, but use mse and other regression factors
 def eval_regression_models(models, X, y_price, tscv, n_splits):
@@ -395,9 +455,6 @@ def eval_regression_models(models, X, y_price, tscv, n_splits):
         }
     return all_results
 
-def per_ticker_report(model, X_test, y_test, model_data, test_mask):
-    test_meta = model.data.loc[test_mask, ['ticker', 'ds', 'target']].reset_index(drop = True)
-    preds = test_meta.copy()
 
 def main():
     print("classification model training with cross-validation")
@@ -584,7 +641,7 @@ def main():
 
     #signal actions
     signals['label'] = signals['pred'].map({1: 'UP', 0:'DOWN'})
-    signals['action'] = signals['pred'].map({1: 'SELL', 0:'BUY/HOLD'}) #if its down, then buy or hold
+    signals['action'] = signals['pred'].map({1: 'SELL/HOLD', 0:'BUY/HOLD'}) #if its down, then buy or hold
                                                                         #if its up then signal to sell the stock
                                                                         #signals sell regardless of profit margin
 
@@ -623,6 +680,46 @@ def main():
     class_metrics_df.to_csv(class_metrics_path, index=False)
     print(f"\nClassification metrics saved to {class_metrics_path}")
     #+--------------------------------------------------------------------------+
+#7 day classification prediction (direction only)
+    base_clf_model = best_model #uses best model from 1 day prediction 
+    multi_clf_results = train_multi_day_classifiers(base_model = base_clf_model, data = data, features_columns = features_columns, tscv = tscv, max_targets = 7)
+
+    #classification sginals
+    X_latest_multi = latest[features_columns]
+    latest_dates = latest['ds'].values
+    latest_tickers = latest['ticker'].values
+
+    multi_clf_signals = []
+
+    for j in range(1,8):
+
+        model_j = multi_clf_results[j]['model']
+        pred_j = model_j.predict(X_latest_multi)
+        
+        for i in range(len(latest)):
+            label = 'UP' if pred_j[i] == 1 else 'DOWN'
+            action = 'SELL/HOLD' if pred_j[i] == 1 else 'BUY/HOLD'
+
+            #formatting what data to output
+            multi_clf_signals.append({
+                'ticker': latest_tickers[i],
+                'as_of_date': latest_dates[i],
+                '+target_days':j ,
+                'predicted_for': latest_dates[i] + BDay(j),
+                'prediction': int(pred_j[i]),
+                'label': label,
+                'action': action,
+                'model': best_name
+            })
+    #inserting into df
+    multi_clf_signals_df = pd.DataFrame(multi_clf_signals)
+    print("7 day per ticker clasiffication prediction (direction)")
+    print(multi_clf_signals_df.sort_values(['ticker', 'as_of_date', '+target_days']).to_string(index = False))
+
+
+
+
+
 
 
 #------------------------------------------------------------------------------------------------------------------
@@ -630,7 +727,7 @@ def main():
     reg_models = get_regression_models()
     reg_results = eval_regression_models(reg_models, X, y_price, tscv, n_splits)
 
-#pick best regression model from least MSE
+#pick best regression model from least MAE
     best_reg_name = min(reg_results, key = lambda k: reg_results[k]['avg_mae'])
     best_reg_model = reg_results[best_reg_name]['model']
 
@@ -643,7 +740,7 @@ def main():
     reg_signals['model'] = best_reg_name
     reg_signals['predicted_price'] = price_pred
     reg_signals['direction'] = np.where(price_pred > latest_close, 'UP', 'DOWN')
-    reg_signals['action'] = np.where(price_pred > latest_close, 'SELL', 'BUY/HOLD')
+    reg_signals['action'] = np.where(price_pred > latest_close, 'SELL/HOLD', 'BUY/HOLD')
     reg_signals['predicted_for'] = reg_signals['as_of_date'] + BDay(1)
 
     print("\nBest regression model by CV MAE:", best_reg_name)
@@ -742,7 +839,7 @@ def main():
 #------------------------------------------------------------------------------------------------------------------
 
 
-    #outputting prediction of the 7 days
+    #outputting prediction of the 7 days regression
     X_latest_multi = latest[features_columns]
 
     multi_signals = []
@@ -766,7 +863,7 @@ def main():
                 'latest_close': latest_close[i],
                 'predicted_price': price_pred_j[i],
                 'direction': 'UP' if price_pred_j[i] > latest_close[i] else 'DOWN',
-                'action': 'SELL' if price_pred_j[i] > latest_close[i] else 'BUY/HOLD'
+                'action': 'SELL/HOLD' if price_pred_j[i] > latest_close[i] else 'BUY/HOLD'
             })
 
     multi_signals_df = pd.DataFrame(multi_signals)
@@ -779,6 +876,7 @@ def main():
     #return both results
     return {
         'classification': all_results, #all_results was used from classification
+        '7_day_classification': multi_clf_results,
         'regression': reg_results, #return regression
         '7_day_regression': multi_reg_results # return 7 day reg
     }
