@@ -29,10 +29,15 @@ cd Stock-Predictor
 pip install -r requirements.txt
 ```
 
-### 3. Run Data Collection (Optional)
+### 3. Set Up API Keys
+Create a `.env` file in the project root directory:
 ```bash
-python collect_data.py
+# .env file
+STOCK_NEWS_API_TOKEN=your_stocknewsapi_token_here
 ```
+
+**Where to get API keys:**
+- **StockNewsAPI**: Sign up at [https://stocknewsapi.com/](https://stocknewsapi.com/) — a free tier is available, though it may not provide enough request capacity for this project. 
 
 ## 📁 File Structure
 
@@ -63,79 +68,113 @@ Data_Collection/
 │       └── all_news.csv   # Combined news data
 ```
 
-## 🔧 For Group Members
+---
 
-### Using the Data
-The data is already collected and ready to use! You can:
+## 🚀 Running the Complete Pipeline
 
-1. **Load stock prices**:
-   ```python
-   import pandas as pd
-   df = pd.read_csv('data/prices/AAPL.csv')
-   print(df.head())
-   ```
+### **Step 1: Collect Stock Price Data**
 
-2. **Load news data**:
-   ```python
-   import pandas as pd
-   news = pd.read_csv('data/news/AAPL_news.csv')
-   print(news.head())
-   ```
+Collects historical OHLCV data from Yahoo Finance for all tickers.
 
-3. **Load combined data**:
-   ```python
-   import pandas as pd
-   all_prices = pd.read_csv('data/prices/all_prices.csv')
-   all_news = pd.read_csv('data/news/all_news.csv')
-   ```
+```bash
+python 01_collect_data.py
+```
 
-### Collecting New Data
-If you want to collect fresh data:
+**What it does:**
+- Downloads stock prices from Yahoo Finance (2023-01-27 to present)
+- Saves data to `data/prices/[TICKER].csv`
+- No API key required (uses yfinance)
 
-1. **Get a Marketaux API key** (free): https://marketaux.com/
-2. **Create a `.env` file**:
-   ```
-   MARKETAUX_KEY=your_api_key_here
-   ```
-3. **Run the collection script**:
-   ```bash
-   python collect_data.py
-   ```
+**Configuration:**
+- Edit `TICKERS` list in the script to add/remove stocks
+- Edit `START` and `END` dates for different time periods
+- Default tickers: AAPL, NVDA, MSFT, AMZN, GOOGL, META, TSLA
 
-## 📈 Data Details
+**Output files:**
+```
+data/prices/
+├── AAPL.csv
+├── NVDA.csv
+├── MSFT.csv
+├── AMZN.csv
+├── GOOGL.csv
+├── META.csv
+└── TSLA.csv
+```
 
-### Stock Price Data Format
-| Column | Description |
-|--------|-------------|
-| ds | Date (YYYY-MM-DD) |
-| ticker | Stock symbol |
-| open | Opening price |
-| high | Highest price |
-| low | Lowest price |
-| close | Closing price |
-| volume | Trading volume |
+---
 
-### News Data Format
-| Column | Description |
-|--------|-------------|
-| published_at | Publication date/time |
-| ticker | Stock symbol |
-| title | Article title |
-| desc | Article description |
-| url | Article URL |
-| source | News source |
-| sentiment | Sentiment analysis |
-| sentiment_score | Sentiment score |
+### **Step 2: Collect News Data**
 
-## 🤝 Contributing
+Collects financial news articles for sentiment analysis.
 
-1. Fork the repository
-2. Make your changes
-3. Submit a pull request
+```bash
+python 01_collect_news.py
+```
 
-## 📝 Notes
+**What it does:**
+- Fetches 500 news articles per stock from StockNewsAPI
+- Splits data: 400 articles for training, 100 for prediction
+- Saves training data to `data/training/news/[TICKER].csv`
+- Saves prediction data to `data/predict/news/[TICKER].csv`
 
-- The `.env` file is excluded from the repository for security
-- News collection requires a Marketaux API key
-- Stock price data is collected from Yahoo Finance (no API key needed)
-- The script respects API rate limits and includes proper error handling
+**Requirements:**
+- Valid `STOCK_NEWS_API_TOKEN` in `.env` file
+- Internet connection
+- May take several minutes due to API rate limits
+
+**Output files:**
+```
+data/training/news/
+├── AAPL.csv (400 articles)
+├── NVDA.csv
+├── MSFT.csv
+├── AMZN.csv
+├── GOOGL.csv
+├── META.csv
+└── TSLA.csv
+
+data/predict/news/
+├── AAPL.csv (100 articles)
+├── NVDA.csv
+├── MSFT.csv
+├── AMZN.csv
+├── GOOGL.csv
+├── META.csv
+└── TSLA.csv
+```
+
+---
+
+### **Step 3: Compute Technical Indicators**
+
+Calculates technical indicators and metrics from price data.
+
+```bash
+python 03_compute_metrics.py
+```
+
+**What it does:**
+- Reads raw price data from `data/prices/`
+- Calculates technical indicators:
+  - SMA (Simple Moving Average)
+  - EMA (Exponential Moving Average)
+  - RSI (Relative Strength Index)
+  - MACD (Moving Average Convergence Divergence)
+  - Stochastic Oscillators (%K, %D)
+  - Volatility metrics
+- Saves enriched data to `data/prices_with_metrics/[TICKER].csv`
+
+**Output files:**
+```
+data/prices_with_metrics/
+├── AAPL.csv (prices + technical indicators)
+├── NVDA.csv
+├── MSFT.csv
+├── AMZN.csv
+├── GOOGL.csv
+├── META.csv
+└── TSLA.csv
+```
+
+---
