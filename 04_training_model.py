@@ -873,6 +873,10 @@ def main():
           .sort_values(['ticker', 'as_of_date', '+target_days'])
           .to_string(index=False))
 
+    reg_7d_path = os.path.join(OUTPUT, "regression_7day_forecasts.csv")
+    multi_signals_df.to_csv(reg_7d_path, index=False)
+    print(f"\n7-day Regression Forecasts saved to {reg_7d_path}")
+
     #return both results
     return {
         'classification': all_results, #all_results was used from classification

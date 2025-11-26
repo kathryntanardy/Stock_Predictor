@@ -20,6 +20,17 @@ def load_class_metrics():
     df = pd.read_csv("data/model_output/classification_metrics.csv")
     return df
 
+def load_reg_metrics():
+    df = pd.read_csv("data/model_output/regression_metrics.csv")
+    return df
+
+def load_reg_7day():
+    df = pd.read_csv(
+        "data/model_output/regression_7day_forecasts.csv",
+        parse_dates=["as_of_date", "predicted_for"]
+    )
+    return df
+    
 def load_sentiment(ticker):
     path = f"data/predicted_news_with_sentiment/{ticker}.csv"
 
@@ -41,6 +52,7 @@ def load_sentiment(ticker):
 #load data
 reg_preds = load_reg_predictions()
 class_metrics = load_class_metrics()
+reg_7d = load_reg_7day()
 
 
 #sidebar
@@ -72,9 +84,8 @@ start_date, end_date = st.sidebar.date_input(
 
 
 #main page (regression + classification)
-def main_page(stock, reg_preds, class_metrics, start_date, end_date):
-    st.markdown("# Stock Price Prediction")
-    st.markdown(f"### {stock} -- Actual vs. Predicted Close Prices")
+def main_page(stock, reg_preds, class_metrics, reg_7d, start_date, end_date):
+    st.markdown(f"# Stock Price Prediction")
 
     df = reg_preds[reg_preds["ticker"] == stock].copy()
 
@@ -85,6 +96,70 @@ def main_page(stock, reg_preds, class_metrics, start_date, end_date):
         st.warning(f"No data available for {stock} in the selected date range.")
         return
     
+
+    #7-day prediction chart
+    st.markdown(f"### {stock} -- 7 Day Regression Prediction Model")
+
+    if reg_7d is not None:
+        df_7days = reg_7d[reg_7d["ticker"] == stock].copy()
+        if not df_7days.empty:
+            latest_as_of = df_7days["as_of_date"].max()
+            df_latest_7 = (
+                df_7days[df_7days["as_of_date"] == latest_as_of]
+                .sort_values("+target_days")
+            )
+
+            fig_7days = go.Figure()
+            fig_7days.add_scatter(
+                x = df_latest_7["predicted_for"],
+                y = df_latest_7["predicted_price"],
+                mode = "lines+markers",
+                name = "Predicted Price",
+            )
+
+            latest_close = df_latest_7["latest_close"].iloc[0]
+
+            fig_7days.add_scatter(
+                x = df_latest_7["predicted_for"],
+                y = [latest_close] * len(df_latest_7),
+                mode = "lines",
+                line = dict(dash = "dash"),
+                name = "Latest Actual Close",
+            )
+
+            fig_7days.update_layout(
+                xaxis_title = "Date",
+                yaxis_title = "Price (USD)",
+                hovermode = "x unified",
+            )
+
+            st.plotly_chart(fig_7days, width = 'stretch')
+        
+        else:
+            st.info("No 7-day forecast data available for {stock}.")
+    else:
+        st.info("no 7-day forecast data found.")
+
+
+    #regression metrics
+    st.markdown("## Regression Metric Assessment")
+    reg_metrics = load_reg_metrics()
+    best_reg = reg_metrics.loc[reg_metrics["avg_mae"].idxmin()]
+
+    col1, col2 = st.columns(2)
+    col1.metric("Best Regression Model", best_reg["model"])
+    col2.metric("MAE ($/share)", f"{best_reg['avg_mae']:.2f}")
+
+
+    st.markdown("")
+    st.markdown("")
+    st.markdown("")
+
+    
+    #predicted vs. actual close prices chart
+    st.markdown(f"# Classification Model Assessment")
+    st.markdown(f"### {stock} -- Actual vs. Predicted Close Price")
+
     fig = go.Figure()
 
     fig.add_scatter(
@@ -110,24 +185,43 @@ def main_page(stock, reg_preds, class_metrics, start_date, end_date):
         hovermode = "x unified",
     )
 
-    st.plotly_chart(fig, use_container_width = True)
+    st.plotly_chart(fig, width = 'stretch')
+
 
     #classification metrics
-    st.markdown("# Classification Metric Assessment")
-    if class_metrics is not None and not class_metrics.empty:
-        if "avg_accuracy" in class_metrics.columns:
-            best_model = class_metrics.loc[class_metrics['avg_accuracy'].idxmax()]
-        else:
-            best_model = class_metrics.loc[class_metrics['avg_f1_score'].idxmax()]
+    st.markdown("## Classification Metric Assessment")
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Best Model", best_model['model'])
+    if class_metrics is not None and not class_metrics.empty:
+        if "avg_f1_score" in class_metrics.columns:
+            best_model = class_metrics.loc[class_metrics['avg_f1_score'].idxmax()]
+        else:
+            best_model = class_metrics.loc[class_metrics['avg_accuracy'].idxmax()]
+
+        if "predicted_next_close" in subset.columns:
+            latest_row = subset.iloc[-1]
+            if latest_row["predicted_next_close"] > latest_row["close"]:
+                direction = "UP"
+                action = "SELL/HOLD"
+            else:
+                direction = "DOWN"
+                action = "BUY/HOLD"
+        else:
+            direction = "N/A"
+            action = "N/A"
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Best Model", best_model["model"])
         col2.metric("Accuracy", f"{best_model['avg_accuracy']:.2%}")
+        col3.metric("Direction", direction)
+        col4.metric("Action", action)
+
+    else:
+        st.info("Classification metrics not available.")
 
 
 #sentiment page
 def sentiment_page(stock):
-    st.markdown("# News Sentiment Analytics")
+    st.markdown(f"# News Sentiment Analytics")
     st.markdown(f"### {stock} -- Sentiment Over Time (Daily Average)")
 
     df, date_col = load_sentiment(stock)
@@ -194,10 +288,11 @@ def sentiment_page(stock):
         yaxis_zerolinewidth = 2,
     )
     
-    st.plotly_chart(fig, use_container_width = True)
+    st.plotly_chart(fig, width = 'stretch')
 
     #sentiment data table
     st.markdown("# News Sentiment Score")
+    st.markdown(f"#### Based on 100 latest news articles for {stock}")
     
     df["date"] = df[dt_col].dt.date
     df["time"] = df[dt_col].dt.time
@@ -265,16 +360,17 @@ def sentiment_page(stock):
         columns = {
             "date": "Date",
             "time": "Time",
+            "title": "News Headline",
             "sentiment_score": "Sentiment Score"
         }
     )
     table_df = table_df.reset_index(drop=True)
     table_df.index += 1  #indexing from 1
-    st.dataframe(table_df, use_container_width=True)  
+    st.dataframe(table_df, width = 'stretch')  
     
     
 if page == "Main":
-    main_page(stock, reg_preds, class_metrics, start_date, end_date)
+    main_page(stock, reg_preds, class_metrics, reg_7d, start_date, end_date)
 else:
     sentiment_page(stock)
 
