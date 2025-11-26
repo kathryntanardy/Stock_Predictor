@@ -6,14 +6,10 @@ This repository contains a comprehensive stock data collection system that gathe
 
 ### Stock Price Data
 - **7 Major Stocks**: AAPL, NVDA, MSFT, AMZN, GOOGL, META, TSLA
-- **Time Period**: 2020 to present (1,455+ days per stock)
-- **Data Points**: Open, High, Low, Close, Volume
 - **Format**: CSV files with daily OHLCV data
 
 ### News Data
 - **100+ articles per stock** (collected using Marketaux API)
-- **Time Period**: Last 3 years of news
-- **Data Points**: Title, Description, URL, Source, Sentiment, Date
 - **Format**: CSV files with structured news data
 
 ## 🚀 Quick Start
