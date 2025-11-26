@@ -35,35 +35,6 @@ STOCK_NEWS_API_TOKEN=your_stocknewsapi_token_here
 **Where to get API keys:**
 - **StockNewsAPI**: Sign up at [https://stocknewsapi.com/](https://stocknewsapi.com/) — a free tier is available, though it may not provide enough request capacity for this project; contact **kta98@sfu.ca** for API key access.
 
-## 📁 File Structure
-
-```
-Data_Collection/
-├── collect_data.py          # Main data collection script
-├── requirements.txt         # Python dependencies
-├── README.md               # This file
-├── .gitignore              # Git ignore rules
-├── data/
-│   ├── prices/             # Stock price data
-│   │   ├── AAPL.csv       # Apple stock data
-│   │   ├── NVDA.csv       # NVIDIA stock data
-│   │   ├── MSFT.csv       # Microsoft stock data
-│   │   ├── AMZN.csv       # Amazon stock data
-│   │   ├── GOOGL.csv      # Google stock data
-│   │   ├── META.csv       # Meta stock data
-│   │   ├── TSLA.csv       # Tesla stock data
-│   │   └── all_prices.csv # Combined price data
-│   └── news/               # News article data
-│       ├── AAPL_news.csv  # Apple news articles
-│       ├── NVDA_news.csv  # NVIDIA news articles
-│       ├── MSFT_news.csv  # Microsoft news articles
-│       ├── AMZN_news.csv  # Amazon news articles
-│       ├── GOOGL_news.csv # Google news articles
-│       ├── META_news.csv  # Meta news articles
-│       ├── TSLA_news.csv  # Tesla news articles
-│       └── all_news.csv   # Combined news data
-```
-
 ---
 
 ## 🚀 Running the Complete Pipeline
