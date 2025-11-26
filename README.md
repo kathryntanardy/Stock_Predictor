@@ -33,7 +33,7 @@ STOCK_NEWS_API_TOKEN=your_stocknewsapi_token_here
 ```
 
 **Where to get API keys:**
-- **StockNewsAPI**: Sign up at [https://stocknewsapi.com/](https://stocknewsapi.com/) — a free tier is available, though it may not provide enough request capacity for this project. 
+- **StockNewsAPI**: Sign up at [https://stocknewsapi.com/](https://stocknewsapi.com/) — a free tier is available, though it may not provide enough request capacity for this project; contact **kta98@sfu.ca** for API key access.
 
 ## 📁 File Structure
 
