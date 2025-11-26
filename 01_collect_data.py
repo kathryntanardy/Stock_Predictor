@@ -19,7 +19,7 @@ if os.path.exists('.env'):
 
 # TICKERS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA"]
 TICKERS = ["TSLA"]
-START = "2023-01-27"
+START = "2020-01-02"
 END = None  
 
 # news collection configuration
