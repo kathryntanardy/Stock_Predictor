@@ -17,8 +17,7 @@ if os.path.exists('.env'):
                 os.environ[key] = value
 
 
-# TICKERS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA"]
-TICKERS = ["TSLA"]
+TICKERS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "META", "TSLA"]
 START = "2020-01-02"
 END = None  
 
