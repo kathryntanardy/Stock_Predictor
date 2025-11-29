@@ -105,65 +105,44 @@ def main():
     try:
         args = parse_args()
         
-        print("Starting sentiment model training...", flush=True)
-        print(f"Arguments: {vars(args)}", flush=True)
-
-        print("=== Loading data ===", flush=True)
+        print("Loading data...")
         df = load_data(args.input_csv, args.text_column, args.label_column)
-        print(f"Loaded {len(df)} rows from {args.input_csv}", flush=True)
-        print(df.head())
+        print(f"Loaded {len(df)} rows")
 
         X = df[args.text_column]
         y = df[args.label_column]
 
-        # ---------- Cross-validation ----------
         if args.cv_folds and args.cv_folds > 1:
-            print(f"\n=== {args.cv_folds}-fold cross-validation (f1_macro) ===", flush=True)
+            print(f"\nCross-validation ({args.cv_folds}-fold, F1_macro)...")
             model_for_cv = build_pipeline()
             cv_scores = cross_val_score(
-                model_for_cv,
-                X,
-                y,
-                cv=args.cv_folds,
-                scoring="f1_macro",
+                model_for_cv, X, y, cv=args.cv_folds, scoring="f1_macro"
             )
-            print("Scores per fold:", cv_scores, flush=True)
-            print("Mean F1_macro:", cv_scores.mean(), flush=True)
-        else:
-            print("\n=== Cross-validation disabled (cv-folds <= 1) ===", flush=True)
+            print(f"Scores per fold: {cv_scores}")
+            print(f"Mean F1_macro: {cv_scores.mean():.3f}")
 
-        # ---------- Train / test split for final evaluation ----------
-        print("\n=== Train-test split ===", flush=True)
+        print("\nSplitting data...")
         X_train, X_test, y_train, y_test = train_test_split(
-            X,
-            y,
-            test_size=args.test_size,
-            random_state=args.random_state,
-            stratify=y,
+            X, y, test_size=args.test_size, random_state=args.random_state, stratify=y
         )
-        print(f"Train size: {len(X_train)}, Test size: {len(X_test)}", flush=True)
 
-        print("\n=== Building final model ===", flush=True)
+        print("Training model...")
         model = build_pipeline()
-        
-
-        print("\n=== Training final model on train split ===", flush=True)
         model.fit(X_train, y_train)
 
-        print("\n=== Evaluating on held-out test set ===", flush=True)
+        print("Evaluating...")
         y_pred = model.predict(X_test)
-
-        print("\nClassification report:", flush=True)
+        print("\nClassification report:")
         print(classification_report(y_test, y_pred))
-
-        print("Confusion matrix:", flush=True)
+        
+        print("\nConfusion matrix:")
         print(confusion_matrix(y_test, y_pred))
 
-        print(f"\n=== Saving model to {args.output_model} ===", flush=True)
+        print(f"\nSaving model to {args.output_model}...")
         joblib.dump(model, args.output_model)
-        print("Done.", flush=True)
+        print("Done.")
     except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr, flush=True)
+        print(f"ERROR: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
         sys.exit(1)
