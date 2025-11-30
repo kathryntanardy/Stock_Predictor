@@ -32,7 +32,7 @@ from pandas.tseries.offsets import BDay #considers business days only
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 #----------------------------
 #all data from csv imports
@@ -189,46 +189,7 @@ def get_models():
     ])
 
     return models
-
-def eval_models(models, X_test, y_test, feature_names):
-    results = {}
-    for name, model in models.items():
-        y_pred = model.predict(X_test)
-
-        #calculating metrics
-        #calculated using the library functions
-        accuracy= accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred)
-        recall = recall_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
-
-        print(f"\n results:")
-        print(f"accuracy: {accuracy:}")
-        print(f"precision: {precision:}")
-        print(f"recall: {recall:}")
-        print(f"f1 score: {f1:}")
-
-        #output classification report
-        #print("\n classification report:")
-        #print(classification_report(y_test, y_pred,target_names =['DOWN', 'UP']))
-
-        #creates confusion matrix
-        print("\n confusion matrix:")
-        cm = confusion_matrix(y_test, y_pred)
-        print(f"predicted: DOWN UP")
-        print(f"actual DOWN: {cm[0,0]} {cm[0,1]}") #0,0 is position of the output on the matrix grid #TN, FP
-        print(f"actual UP: {cm[1,0]} {cm[1,1]}") #FN, TP
-
-        results[name] = {
-            'model' : model,
-            'accuracy' : accuracy,
-            'precision': precision,
-            'recall': recall,
-            'f1_score': f1,
-            'predictions': y_pred,
-            'confusion_matrix': cm
-        }
-    return results
+     
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 #get regression models
 #same process as classification but for regression
@@ -296,7 +257,7 @@ def train_multi_target_regressors(base_model, data, features_columns, tscv, n_sp
         y_h = valid[target_col]
 
         #folds for regression like the previous
-        fold_mae, fold_rmse, fold_r2 = [], [], []
+        fold_mae = []
 
         
         for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(X)):
@@ -311,17 +272,11 @@ def train_multi_target_regressors(base_model, data, features_columns, tscv, n_sp
 
             mae = mean_absolute_error(y_test_fold, y_pred)
             mse = mean_squared_error(y_test_fold, y_pred)
-            rmse = np.sqrt(mse)
-            r2 = r2_score(y_test_fold, y_pred)
 
             fold_mae.append(mae)
-            fold_rmse.append(rmse)
-            fold_r2.append(r2)
 
 
         avg_mae = np.mean(fold_mae)
-        avg_rmse = np.mean(fold_rmse)
-        avg_r2 = np.mean(fold_r2)
 
         # train final model for this day
         final_model = clone(base_model)
@@ -330,8 +285,7 @@ def train_multi_target_regressors(base_model, data, features_columns, tscv, n_sp
         results[j] = {
             'model': final_model,
             'avg_mae': avg_mae,
-            'avg_rmse': avg_rmse,
-            'avg_r2': avg_r2
+
         }
 
     return results
@@ -403,9 +357,6 @@ def eval_regression_models(models, X, y_price, tscv, n_splits):
         #print("\n")
 
         fold_mae = []
-        fold_rmse = []
-        fold_r2 = []
-
         for fold_idx, (train_idx, test_idx) in enumerate(tscv.split(X)):
             X_train_fold = X.iloc[train_idx]
             X_test_fold = X.iloc[test_idx]
@@ -420,26 +371,19 @@ def eval_regression_models(models, X, y_price, tscv, n_splits):
 
             mae = mean_absolute_error(y_test_fold, y_pred_price)
             mse = mean_squared_error(y_test_fold, y_pred_price)
-            rmse = np.sqrt(mse)
-            r2 = r2_score(y_test_fold, y_pred_price)
+
 
             fold_mae.append(mae)
-            fold_rmse.append(rmse)
-            fold_r2.append(r2)
 
-            #print(f"  Fold {fold_idx+1}: MAE={mae:.4f}, RMSE={rmse:.4f}, R2={r2:.4f}")
+
+            #print(f"  Fold {fold_idx+1}: MAE={mae:.4f}
 
         avg_mae = np.mean(fold_mae)
         std_mae = np.std(fold_mae)
-        avg_rmse = np.mean(fold_rmse)
-        std_rmse = np.std(fold_rmse)
-        avg_r2 = np.mean(fold_r2)
-        std_r2 = np.std(fold_r2)
 
         #print(f"\nAverage regression metrics across {n_splits} folds:")
         #print(f"  MAE:   {avg_mae:.4f}")
-        #print(f"  RMSE:  {avg_rmse:.4f}")
-        #print(f"  R2:    {avg_r2:.4f}")
+
 
         final_model = clone(model)
         final_model.fit(X, y_price)
@@ -448,10 +392,6 @@ def eval_regression_models(models, X, y_price, tscv, n_splits):
             'model': final_model,
             'avg_mae': avg_mae,
             'std_mae': std_mae,
-            'avg_rmse': avg_rmse,
-            'std_rmse': std_rmse,
-            'avg_r2': avg_r2,
-            'std_r2': std_r2,
         }
     return all_results
 
@@ -760,10 +700,6 @@ def main():
             "model": model_name,
             "avg_mae": info['avg_mae'],
             "std_mae": info['std_mae'],
-            "avg_rmse": info['avg_rmse'],
-            "std_rmse": info['std_rmse'],
-            "avg_r2": info['avg_r2'],
-            "std_r2": info['std_r2']
         })
 
     reg_metrics_df = pd.DataFrame(reg_rows)
