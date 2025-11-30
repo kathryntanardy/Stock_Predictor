@@ -162,21 +162,15 @@ Trains the machine learning models for both:
 - Trains multiple classification models using TimeSeriesSplit
 - Evaluates each model using: Accuracy,Precision,Recall,F1 Score (primary metric)
 - Selects the best classifier based on highest average F1 score
-- Generates:
-- Next-day direction prediction (UP or DOWN)
-- 7-day multi-horizon direction predictions
-- BUY/HOLD or SELL/HOLD signals
+- Generates:Next-day direction prediction (UP or DOWN),7-day multi-horizon direction predictions, BUY/HOLD or SELL/HOLD signals
 
-- Regression Pipeline
+🔹 Regression Pipeline
 - Trains multiple regression models:
 - Evaluates each model using:
 - MAE (Mean Absolute Error) — primary metric
 - Selects the best regressor based on lowest average MAE
-- Generates:
-- Next-day predicted closing price
-- 7-day multi-horizon price forecasts
-- Computes:
-- Directional accuracy across 7-day horizons
+- Generates: Next-day predicted closing price,7-day multi-horizon price forecasts
+- Computes:Directional accuracy across 7-day horizons
 
 Global average MAE across all horizons
 **Output files:**
