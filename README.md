@@ -174,10 +174,11 @@ Trains the machine learning models for both:
 
 Global average MAE across all horizons
 **Output files:**
+'''
 data/model_output/
 ├── classification_metrics.csv        # CV metrics for all classifiers
 ├── regression_metrics.csv            # CV metrics for all regressors
 ├── regression_fs_predictions.csv     # Full-series regression predictions
 ├── regression_7day_forecasts.csv     # 7-day price forecasts
 └── (console output)  
-
+---
