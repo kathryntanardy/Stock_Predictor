@@ -143,7 +143,7 @@ data/prices_with_metrics/
 ├── META.csv
 └── TSLA.csv
 ```
-
+---
 
 **Step 4: Train Forecasting Models (Price & Direction)**
 
@@ -180,4 +180,4 @@ data/model_output/
 ├── regression_fs_predictions.csv     # Full-series regression predictions
 ├── regression_7day_forecasts.csv     # 7-day price forecasts
 └── (console output)  
----
+
