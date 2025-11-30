@@ -144,4 +144,39 @@ data/prices_with_metrics/
 └── TSLA.csv
 ```
 
+
+**Step 4: Train Forecasting Models (Price & Direction)**
+
+Trains the machine learning models for both:
+- **Classification**: next-day and 7-day UP/DOWN direction  
+- **Regression**: next-day and 7-day predicted closing prices  
+
+```bash
+# python 04_training_model.py
+
+**What it does:**
+
+- Trains multiple classification models using TimeSeriesSplit cross-validation
+
+- Evaluates classification models with:
+
+- Accuracy, Precision, Recall, F1 (per fold and averaged)
+
+- Selects the best classifier based on average F1 score
+
+- Trains multiple regression models
+
+Evaluates regression models using:
+
+MAE (Mean Absolute Error) as the main metric
+
+Selects the best regressor based on lowest average MAE
+
+**Output files:**
+data/model_output/
+├── classification_metrics.csv        # CV metrics for all classifiers
+├── regression_metrics.csv            # CV metrics for all regressors
+├── regression_fs_predictions.csv     # Full-series regression predictions
+├── regression_7day_forecasts.csv     # 7-day price forecasts
+└── (console output)  
 ---
