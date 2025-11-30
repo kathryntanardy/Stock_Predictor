@@ -153,24 +153,19 @@ Trains the machine learning models for both:
 
 ```bash
 # python 04_training_model.py
+```
 
 **What it does:**
 
-- Trains multiple classification models using TimeSeriesSplit cross-validation
-
-- Evaluates classification models with:
-
-- Accuracy, Precision, Recall, F1 (per fold and averaged)
-
-- Selects the best classifier based on average F1 score
-
-- Trains multiple regression models
-
-Evaluates regression models using:
-
-MAE (Mean Absolute Error) as the main metric
-
-Selects the best regressor based on lowest average MAE
+🔹 Classification Pipeline
+Loads merged price + technical indicator dataset
+Trains multiple classification models using TimeSeriesSplit
+Evaluates each model using: Accuracy,Precision,Recall,F1 Score (primary metric)
+Selects the best classifier based on highest average F1 score
+Generates:
+Next-day direction prediction (UP or DOWN)
+7-day multi-horizon direction predictions
+BUY/HOLD or SELL/HOLD signals
 
 **Output files:**
 data/model_output/
