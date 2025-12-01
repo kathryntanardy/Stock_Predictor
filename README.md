@@ -143,5 +143,43 @@ data/prices_with_metrics/
 ├── META.csv
 └── TSLA.csv
 ```
+---
 
+**Step 4: Train Forecasting Models (Price & Direction)**
+
+Trains the machine learning models for both:
+- **Classification**: next-day and 7-day UP/DOWN direction  
+- **Regression**: next-day and 7-day predicted closing prices  
+
+```bash
+# python 04_training_model.py
+```
+
+**What it does:**
+
+🔹 Classification Pipeline
+- Loads merged price + technical indicator dataset
+- Trains multiple classification models using TimeSeriesSplit
+- Evaluates each model using: Accuracy,Precision,Recall,F1 Score (primary metric)
+- Selects the best classifier based on highest average F1 score
+- Generates:Next-day direction prediction (UP or DOWN),7-day multi-horizon direction predictions, BUY/HOLD or SELL/HOLD signals
+
+🔹 Regression Pipeline
+- Trains multiple regression models:
+- Evaluates each model using:
+- MAE (Mean Absolute Error) — primary metric
+- Selects the best regressor based on lowest average MAE
+- Generates: Next-day predicted closing price,7-day multi-horizon price forecasts
+- Computes:Directional accuracy across 7-day horizons
+
+Global average MAE across all horizons
+**Output files:**
+```
+data/model_output/
+├── classification_metrics.csv        # CV metrics for all classifiers
+├── regression_metrics.csv            # CV metrics for all regressors
+├── regression_fs_predictions.csv     # Full-series regression predictions
+├── regression_7day_forecasts.csv     # 7-day price forecasts
+└── (console output)
+```
 ---
