@@ -2,7 +2,7 @@
 
 This repository contains a comprehensive stock data collection system that gathers both price data and news articles for major tech stocks.
 
-## 📊 Data Available
+## Data Available
 
 ### Stock Price Data
 - **7 Major Stocks**: AAPL, NVDA, MSFT, AMZN, GOOGL, META, TSLA
@@ -12,7 +12,7 @@ This repository contains a comprehensive stock data collection system that gathe
 - **100+ articles per stock** (collected using Marketaux API)
 - **Format**: CSV files with structured news data
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone the Repository
 ```bash
@@ -37,7 +37,7 @@ STOCK_NEWS_API_TOKEN=your_stocknewsapi_token_here
 
 ---
 
-## 🚀 Running the Complete Pipeline
+## Running the Complete Pipeline
 
 ### **Step 1: Collect Stock Price Data**
 
@@ -145,7 +145,7 @@ data/prices_with_metrics/
 ```
 ---
 
-**Step 4: Train Forecasting Models (Price & Direction)**
+### **Step 4: Train Forecasting Models (Price & Direction)**
 
 Trains the machine learning models for both:
 - **Classification**: next-day and 7-day UP/DOWN direction  
@@ -157,22 +157,23 @@ Trains the machine learning models for both:
 
 **What it does:**
 
-🔹 Classification Pipeline
+Classification Pipeline
 - Loads merged price + technical indicator dataset
 - Trains multiple classification models using TimeSeriesSplit
-- Evaluates each model using: Accuracy,Precision,Recall,F1 Score (primary metric)
+- Evaluates each model using: Accuracy, Precision, Recall, F1 Score (primary metric)
 - Selects the best classifier based on highest average F1 score
-- Generates:Next-day direction prediction (UP or DOWN),7-day multi-horizon direction predictions, BUY/HOLD or SELL/HOLD signals
+- Generates: Next-day direction prediction (UP or DOWN), 7-day multi-horizon direction predictions, BUY/HOLD or SELL/HOLD signals
 
-🔹 Regression Pipeline
+Regression Pipeline
 - Trains multiple regression models:
 - Evaluates each model using:
 - MAE (Mean Absolute Error) — primary metric
 - Selects the best regressor based on lowest average MAE
-- Generates: Next-day predicted closing price,7-day multi-horizon price forecasts
-- Computes:Directional accuracy across 7-day horizons
-
-Global average MAE across all horizons
+- Generates: Next-day predicted closing price, 7-day multi-horizon price forecasts
+- Computes: 
+  - Directional accuracy across 7-day horizons
+  - Global average MAE across all horizons
+  
 **Output files:**
 ```
 data/model_output/
@@ -317,3 +318,37 @@ For each ticker, displays:
 - 100-day sentiment summary: counts of negative/neutral/positive articles and overall sentiment score
 - Save confirmation
 
+---
+
+## **Step 8: Deploy Streamlit Dashboard
+
+Runs an interactive web dashboard that displays the price prediction and sentiment models.
+
+```bash
+streamlit run app.py
+```
+
+**What it does:**
+- Starts local Streamlit app in browser
+- Load price model output CSVs from `data/model_output/` and sentiment output CSV from `data/predicted_news_with_sentiment/[TICKER].csv`
+- Allows user to select ticker and date range from sidebar
+- Provides two main pages: 
+  1. Main (Price)
+      - 7-day Regression Forecast: Line graph displays predicted closing price for the next 7 business days, plotted against reference line of most recent actual close
+      - Actual vs. Predicted Price: Line graph displays model's next-day predictions (represented in blue) plotted against historical closing prices (orange)
+      - Summary metrics that display:
+        - Best regression model (by MAE) and its error by $/share
+        - Best classification model (by F1 score), its accuracy, UP/DOWN direction, and suggested BUY/SELL/HOLD action
+  2. Sentiment
+     - Bar chart of recent daily average sentiment of selected stock
+     - Summary table of ~100 of the latest news articles on selected stock, including: date, time, headline, negative/neutral/positive score, and overall sentiment score 
+
+**Requirements**
+- Must have run previous steps to generate:
+  - Price data and technical indicators from `data/prices_with_metrics/`
+  - Model output CSVs from `data/model_output/`
+  - Predicted news sentiment files from `predicted_news_with_sentiment/`
+
+**Output**
+- Starts a local Streamlit app in browser (or gives local URL) 
+- An interactive dashboard that displays prices, model performance, and news-driven sentiment for the 7 tickers across different dates
