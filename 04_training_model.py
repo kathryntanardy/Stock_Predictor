@@ -341,9 +341,6 @@ def train_multi_day_classifiers(base_model,data, features_columns, tscv, max_tar
         }
     return results
 
-
-
-
         
 #------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -657,11 +654,6 @@ def main():
     print(multi_clf_signals_df.sort_values(['ticker', 'as_of_date', '+target_days']).to_string(index = False))
 
 
-
-
-
-
-
 #------------------------------------------------------------------------------------------------------------------
 #regression models
     reg_models = get_regression_models()
@@ -825,5 +817,3 @@ if __name__ == "__main__":
 
     results = main()
 
-#note: rmse and r2 are not used in 7 day prediction and only for testing purposes intially (t help figure out the models)
-#also arent use in 7 day as best model is linear regression and combining with market volataility doesnt help with accuracy metric
