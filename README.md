@@ -31,6 +31,7 @@ Create a `.env` file in the project root directory:
 # .env file
 STOCK_NEWS_API_TOKEN=your_stocknewsapi_token_here
 ```
+Note: If you don’t have the API key, all required data is already included in the /data folder. You can use it for training and prediction.
 
 **Where to get API keys:**
 - **StockNewsAPI**: Sign up at [https://stocknewsapi.com/](https://stocknewsapi.com/) — a free tier is available, though it may not provide enough request capacity for this project; contact **kta98@sfu.ca** for API key access.
