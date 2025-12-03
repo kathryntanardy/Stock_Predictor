@@ -174,6 +174,8 @@ Regression Pipeline
 - Computes: 
   - Directional accuracy across 7-day horizons
   - Global average MAE across all horizons
+    
+Note: Training the model may take a few minutes to complete.
   
 **Output files:**
 ```
