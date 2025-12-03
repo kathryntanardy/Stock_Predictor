@@ -114,7 +114,8 @@ def main_page(stock, reg_preds, class_metrics, reg_7d, start_date, end_date):
                 x = df_latest_7["predicted_for"],
                 y = df_latest_7["predicted_price"],
                 mode = "lines+markers",
-                name = "Predicted Price",
+                name = "Predicted Close Price",
+                line = dict(color = "blue"),
             )
 
             latest_close = df_latest_7["latest_close"].iloc[0]
@@ -167,7 +168,7 @@ def main_page(stock, reg_preds, class_metrics, reg_7d, start_date, end_date):
         y = subset["close"],
         mode = "lines+markers",
         name = "Actual Close Price",
-        line = dict(color = "blue"),
+        line = dict(color = "orange"),
     )
 
     if "predicted_next_close" in subset.columns:
@@ -176,7 +177,7 @@ def main_page(stock, reg_preds, class_metrics, reg_7d, start_date, end_date):
             y = subset["predicted_next_close"],
             mode = "lines+markers",
             name = "Predicted Next Close Price",
-            line = dict(color = "orange"),
+            line = dict(color = "blue"),
         )    
 
     fig.update_layout(
