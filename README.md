@@ -152,7 +152,7 @@ Trains the machine learning models for both:
 - **Regression**: next-day and 7-day predicted closing prices  
 
 ```bash
-# python 04_training_model.py
+python 04_training_model.py
 ```
 
 **What it does:**
@@ -320,7 +320,7 @@ For each ticker, displays:
 
 ---
 
-## **Step 8: Deploy Streamlit Dashboard
+### **Step 8: Deploy Streamlit Dashboard**
 
 Runs an interactive web dashboard that displays the price prediction and sentiment models.
 
